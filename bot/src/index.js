@@ -12,10 +12,11 @@ import * as rooms from './voicerooms.js';
 import * as events from './events.js';
 import { onMessage, onVoice, startVoiceTracking } from './tracking.js';
 import { registerCommands } from './deploy.js';
+import { cfg } from './config.js';
 
 const content = process.env.MESSAGE_CONTENT === '1';
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates, ...(content ? [GatewayIntentBits.MessageContent] : [])],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers, ...(content ? [GatewayIntentBits.MessageContent] : [])],
 });
 
 client.once(Events.ClientReady, async (c) => {
@@ -42,6 +43,10 @@ client.on(Events.InteractionCreate, async (i) => {
   }
 });
 
+client.on(Events.GuildMemberAdd, (m) => {
+  if (m.user.bot || !cfg.roles.guest) return;
+  m.roles.add(cfg.roles.guest, 'Автовыдача при входе').catch((e) => console.error('guest role', e.message));
+});
 client.on(Events.VoiceStateUpdate, (o, n) => { onVoice(o, n); rooms.onVoice(o, n); });
 client.on(Events.MessageCreate, (m) => { onMessage(m); touch(m); automod(m).catch((e) => console.error('automod', e.message)); });
 process.on('unhandledRejection', (e) => console.error('unhandled', e));
