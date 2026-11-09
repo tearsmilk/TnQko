@@ -1,7 +1,10 @@
 import 'dotenv/config';
 import { REST, Routes } from 'discord.js';
 import { cfg } from './config.js';
-import { commands } from './moderation.js';
+import { commands as mod } from './moderation.js';
+import { commands as prof } from './profile.js';
+import { commands as soc } from './social.js';
+const commands = [...mod, ...prof, ...soc];
 
 export async function registerCommands() {
   const rest = new REST().setToken(process.env.BOT_TOKEN);

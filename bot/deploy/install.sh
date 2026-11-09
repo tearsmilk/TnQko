@@ -20,6 +20,11 @@ if ! node_ok; then
 fi
 echo "Node: $(node -v)"
 
+# Python + Pillow (profile card renderer)
+if ! python3 -c "import PIL" 2>/dev/null; then
+  apt-get update -y && apt-get install -y python3 python3-pil
+fi
+
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
 
 # Get code (keeps .env and data/ on update)

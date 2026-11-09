@@ -3,24 +3,28 @@ import { Client, GatewayIntentBits, Events, MessageFlags } from 'discord.js';
 import { handleCommand, automod } from './moderation.js';
 import { handleButton, touch, startIdleCloser } from './tickets.js';
 import { handleApp } from './applications.js';
+import * as profile from './profile.js';
+import * as social from './social.js';
+import { onMessage, onVoice, startVoiceTracking } from './tracking.js';
 import { registerCommands } from './deploy.js';
 
 const content = process.env.MESSAGE_CONTENT === '1';
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, ...(content ? [GatewayIntentBits.MessageContent] : [])],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates, ...(content ? [GatewayIntentBits.MessageContent] : [])],
 });
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
   await registerCommands().catch((e) => console.error('command registration failed', e.message));
   startIdleCloser(c);
+  startVoiceTracking(c);
 });
 
 client.on(Events.InteractionCreate, async (i) => {
   try {
-    if (i.isChatInputCommand()) await handleCommand(i);
+    if (i.isChatInputCommand()) { (await handleCommand(i)) || (await profile.handleCommand(i)) || (await social.handleCommand(i)); }
     else if ((i.isButton() || i.isModalSubmit()) && i.customId.startsWith('ap:')) await handleApp(i);
-    else if (i.isButton()) await handleButton(i);
+    else if (i.isButton()) { (await social.handleButton(i)) || (await handleButton(i)); }
   } catch (e) {
     console.error(e);
     const msg = { content: '❌ Error / Ошибка', flags: MessageFlags.Ephemeral };
@@ -28,6 +32,7 @@ client.on(Events.InteractionCreate, async (i) => {
   }
 });
 
-client.on(Events.MessageCreate, (m) => { touch(m); automod(m).catch((e) => console.error('automod', e.message)); });
+client.on(Events.VoiceStateUpdate, (o, n) => onVoice(o, n));
+client.on(Events.MessageCreate, (m) => { onMessage(m); touch(m); automod(m).catch((e) => console.error('automod', e.message)); });
 process.on('unhandledRejection', (e) => console.error('unhandled', e));
 client.login(process.env.BOT_TOKEN);
