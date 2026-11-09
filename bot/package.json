@@ -1,0 +1,14 @@
+{
+  "name": "tnqko-bot",
+  "version": "1.0.0",
+  "description": "TnQko Discord bot: moderation, tickets, applications",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy.js",
+    "panels": "node src/panels.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "discord.js": "^14.16.3", "dotenv": "^16.4.5" }
+}

@@ -1,0 +1,76 @@
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
+import { cfg, L2 } from './config.js';
+import { data, save } from './store.js';
+import { t, hasLevel, embed, sendLog } from './util.js';
+
+const eph = MessageFlags.Ephemeral;
+export const APP_TYPES = {
+  mod: { ru: 'Модератор', en: 'Moderator', role: cfg.roles.mod, minAge: 16 },
+  media: { ru: 'Медиа', en: 'Media', role: cfg.roles.media, minAge: 13 },
+};
+const COOLDOWN = 14 * 864e5;
+const input = (id, label, style, req = true, max = 1000) =>
+  new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId(id).setLabel(label).setStyle(style).setRequired(req).setMaxLength(max));
+
+function modal(i, type) {
+  const A = APP_TYPES[type];
+  return new ModalBuilder().setCustomId(`ap:submit:${type}`).setTitle(`${t(i, 'Заявка', 'Application')}: ${t(i, A.ru, A.en)}`.slice(0, 45)).addComponents(
+    input('age', t(i, 'Возраст', 'Age'), TextInputStyle.Short, true, 3),
+    input('tz', t(i, 'Часовой пояс / страна', 'Timezone / country'), TextInputStyle.Short, true, 40),
+    input('exp', t(i, 'Опыт', 'Experience'), TextInputStyle.Paragraph, true, 800),
+    input('why', t(i, 'Почему ты хочешь в команду?', 'Why do you want to join?'), TextInputStyle.Paragraph, true, 800),
+    input('links', t(i, 'Ссылки на работы (необязательно)', 'Links to your work (optional)'), TextInputStyle.Short, false, 300));
+}
+
+async function submit(i, type) {
+  const A = APP_TYPES[type];
+  const age = parseInt(i.fields.getTextInputValue('age'), 10);
+  if (!Number.isInteger(age) || age < 13 || age > 99) return i.reply({ content: t(i, 'Укажи возраст числом.', 'Enter your age as a number.'), flags: eph });
+  if (age < A.minAge) return i.reply({ content: t(i, `Минимальный возраст: ${A.minAge}.`, `Minimum age: ${A.minAge}.`), flags: eph });
+  const mine = Object.values(data.apps).filter((a) => a.userId === i.user.id && a.type === type);
+  if (mine.some((a) => a.status === 'pending')) return i.reply({ content: t(i, 'У тебя уже есть заявка на рассмотрении.', 'You already have a pending application.'), flags: eph });
+  if (mine.some((a) => a.status === 'declined' && Date.now() - a.decidedAt < COOLDOWN)) return i.reply({ content: t(i, 'Повторная заявка возможна через 14 дней после отказа.', 'You can re-apply 14 days after a decline.'), flags: eph });
+  if (i.member.roles.cache.has(A.role)) return i.reply({ content: t(i, 'У тебя уже есть эта роль.', 'You already have this role.'), flags: eph });
+  const id = ++data.appCounter;
+  const f = (k) => i.fields.getTextInputValue(k) || '—';
+  const msg = await (await i.client.channels.fetch(cfg.channels.appReview)).send({
+    embeds: [embed(`📝 ${A.en} application #${id}`, null).setThumbnail(i.user.displayAvatarURL()).addFields(
+      { name: 'Applicant', value: `${i.user} (${i.user.id})`, inline: true }, { name: 'Age', value: String(age), inline: true }, { name: 'Timezone', value: f('tz'), inline: true },
+      { name: 'Experience', value: f('exp') }, { name: 'Motivation', value: f('why') }, { name: 'Links', value: f('links') })],
+    components: [new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`ap:accept:${id}`).setLabel('Accept / Принять').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`ap:decline:${id}`).setLabel('Decline / Отклонить').setEmoji('❌').setStyle(ButtonStyle.Danger))],
+  });
+  data.apps[id] = { id, userId: i.user.id, type, status: 'pending', messageId: msg.id, at: Date.now() }; save();
+  await i.reply({ content: t(i, '✅ Заявка отправлена. Мы сообщим о решении в личные сообщения.', '✅ Application sent. We will DM you with the decision.'), flags: eph });
+}
+
+async function decide(i, id, accepted, reason) {
+  const app = data.apps[id];
+  if (!app || app.status !== 'pending') return i.reply({ content: 'Already processed.', flags: eph });
+  app.status = accepted ? 'accepted' : 'declined'; app.decidedAt = Date.now(); app.by = i.user.id; save();
+  const A = APP_TYPES[app.type];
+  const user = await i.client.users.fetch(app.userId);
+  if (accepted) { const m = await i.guild.members.fetch(app.userId).catch(() => null); await m?.roles.add(A.role, `Application #${id}`).catch(() => {}); }
+  await user.send({ embeds: [embed(accepted ? '✅ Заявка принята / Application accepted' : '❌ Заявка отклонена / Application declined',
+    `**${A.ru} / ${A.en}**${reason ? `\n**Причина / Reason:** ${reason}` : ''}`)] }).catch(() => {});
+  const e = i.message.embeds[0].toJSON(); e.color = accepted ? 0x6fa380 : 0xa05a5a;
+  e.footer = { text: `${accepted ? 'Accepted' : 'Declined'} by ${i.user.tag}${reason ? ` — ${reason}` : ''}` };
+  const patch = { embeds: [e], components: [] };
+  await (i.isModalSubmit() ? i.message.edit(patch) : i.update(patch));
+  if (i.isModalSubmit()) await i.reply({ content: '👌', flags: eph });
+  await sendLog(i.client, embed(`Application #${id} ${app.status}`, `<@${app.userId}> · ${A.en} · by ${i}${reason ? `\n${reason}` : ''}`));
+}
+
+export async function handleApp(i) {
+  const [ns, action, arg] = i.customId.split(':');
+  if (ns !== 'ap') return false;
+  if (i.isButton() && action === 'open') { await i.showModal(modal(i, arg)); return true; }
+  if (i.isModalSubmit() && action === 'submit') { await submit(i, arg); return true; }
+  if (!hasLevel(i.member, L2)) { await i.reply({ content: '⛔', flags: eph }); return true; }
+  if (i.isButton() && action === 'accept') await decide(i, arg, true);
+  else if (i.isButton() && action === 'decline')
+    await i.showModal(new ModalBuilder().setCustomId(`ap:reason:${arg}`).setTitle('Decline / Отклонить').addComponents(input('reason', 'Reason / Причина', TextInputStyle.Paragraph, false, 400)));
+  else if (i.isModalSubmit() && action === 'reason') await decide(i, arg, false, i.fields.getTextInputValue('reason') || null);
+  return true;
+}
