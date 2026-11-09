@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Installs the TnQko bot as a systemd service. Does not touch nginx, docker or other services.
-# Usage (as root):  bash install.sh        (re-run the same command later to update)
+# Usage (as root):
+#   bash install.sh              download the code from GitHub (public repo)
+#   bash install.sh /path/to/bot use a local copy of the bot/ folder (private repo)
 set -euo pipefail
 
 REPO="tearsmilk/TnQko"
@@ -20,11 +22,16 @@ echo "Node: $(node -v)"
 
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
 
-# Fetch code (keeps .env and data/ on update)
-TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-curl -fsSL "https://codeload.github.com/${REPO}/tar.gz/refs/heads/${BRANCH}" | tar -xz -C "$TMP"
-SRC="$(find "$TMP" -mindepth 2 -maxdepth 2 -type d -name bot | head -1)"
-[ -n "$SRC" ] || { echo "bot/ folder not found in repo"; exit 1; }
+# Get code (keeps .env and data/ on update)
+if [ -n "${1:-}" ]; then
+  SRC="$(readlink -f "$1")"
+  [ -f "$SRC/package.json" ] || { echo "$SRC/package.json not found"; exit 1; }
+else
+  TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+  curl -fsSL "https://codeload.github.com/${REPO}/tar.gz/refs/heads/${BRANCH}" | tar -xz -C "$TMP"
+  SRC="$(find "$TMP" -mindepth 2 -maxdepth 2 -type d -name bot | head -1)"
+  [ -n "$SRC" ] || { echo "bot/ folder not found in repo"; exit 1; }
+fi
 mkdir -p "$APP_DIR"
 tar -C "$SRC" --exclude=.env --exclude=data --exclude=node_modules -cf - . | tar -C "$APP_DIR" -xf -
 mkdir -p "$APP_DIR/data"
