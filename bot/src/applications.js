@@ -7,6 +7,8 @@ const eph = MessageFlags.Ephemeral;
 export const APP_TYPES = {
   mod: { ru: 'Модератор', en: 'Moderator', emoji: '🛡️', role: cfg.roles.mod, minAge: 16 },
   media: { ru: 'Медиа', en: 'Media', emoji: '🎬', role: cfg.roles.media, minAge: 13 },
+  forumCreative: { ru: 'Менеджер форумов: Творчество', en: 'Forum manager: Creative', emoji: '🎨', role: cfg.roles.forumCreative, minAge: 16 },
+  forumPortal: { ru: 'Менеджер форумов: Портал', en: 'Forum manager: Portal', emoji: '💻', role: cfg.roles.forumPortal, minAge: 16 },
 };
 const COOLDOWN = 14 * 864e5;
 const input = (id, label, style, req = true, max = 1000) =>

@@ -8,6 +8,7 @@ import * as social from './social.js';
 import * as top from './top.js';
 import * as shop from './shop.js';
 import * as giveaway from './giveaway.js';
+import * as rooms from './voicerooms.js';
 import { onMessage, onVoice, startVoiceTracking } from './tracking.js';
 import { registerCommands } from './deploy.js';
 
@@ -22,12 +23,14 @@ client.once(Events.ClientReady, async (c) => {
   startIdleCloser(c);
   startVoiceTracking(c);
   top.startWeekly(c);
+  rooms.cleanup(c).catch((e) => console.error('rooms cleanup', e.message));
   giveaway.startGiveawayTimer(c);
 });
 
 client.on(Events.InteractionCreate, async (i) => {
   try {
-    if (i.isChatInputCommand()) { (await handleCommand(i)) || (await profile.handleCommand(i)) || (await social.handleCommand(i)) || (await top.handleCommand(i)) || (await shop.handleCommand(i)) || (await giveaway.handleCommand(i)); }
+    if (i.customId?.startsWith('vr:')) await rooms.handle(i);
+    else if (i.isChatInputCommand()) { (await handleCommand(i)) || (await profile.handleCommand(i)) || (await social.handleCommand(i)) || (await top.handleCommand(i)) || (await shop.handleCommand(i)) || (await giveaway.handleCommand(i)); }
     else if ((i.isButton() || i.isModalSubmit()) && i.customId.startsWith('ap:')) await handleApp(i);
     else if (i.isButton()) { (await social.handleButton(i)) || (await giveaway.handleButton(i)) || (await handleButton(i)); }
   } catch (e) {
@@ -37,7 +40,7 @@ client.on(Events.InteractionCreate, async (i) => {
   }
 });
 
-client.on(Events.VoiceStateUpdate, (o, n) => onVoice(o, n));
+client.on(Events.VoiceStateUpdate, (o, n) => { onVoice(o, n); rooms.onVoice(o, n); });
 client.on(Events.MessageCreate, (m) => { onMessage(m); touch(m); automod(m).catch((e) => console.error('automod', e.message)); });
 process.on('unhandledRejection', (e) => console.error('unhandled', e));
 client.login(process.env.BOT_TOKEN);

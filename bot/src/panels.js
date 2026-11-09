@@ -4,6 +4,7 @@ import { REST, Routes } from 'discord.js';
 import { cfg } from './config.js';
 import { TYPES } from './tickets.js';
 import { APP_TYPES } from './applications.js';
+import { panelMessage } from './voicerooms.js';
 
 const rest = new REST().setToken(process.env.BOT_TOKEN);
 const T = (content) => ({ type: 10, content });
@@ -23,7 +24,9 @@ const apps = box(
   { type: 1, components: Object.entries(APP_TYPES).map(([k, a]) => btn(`ap:open:${k}`, a.ru, a.emoji)) });
 
 const only = process.argv[2];
-for (const [name, ch, body] of [['tickets', cfg.channels.panelTickets, tickets], ['apps', cfg.channels.panelApps, apps]]) {
+const voicePanel = (() => { const m = panelMessage(); const { files, ...b } = m; return JSON.parse(JSON.stringify(b)); })();
+for (const [name, ch, body] of [['tickets', cfg.channels.panelTickets, tickets], ['apps', cfg.channels.panelApps, apps], ['voice', cfg.channels.voicePanel, voicePanel]]) {
+  if (!ch) continue;
   if (only && only !== name) continue;
   const m = await rest.post(Routes.channelMessages(ch), { body });
   console.log('опубликовано', name, m.id);
