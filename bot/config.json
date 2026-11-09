@@ -16,6 +16,59 @@
     "appReview": "1569264438790463549",
     "ticketsCategory": "1569264434260484268",
     "panelTickets": "1569264425804759112",
-    "panelApps": "1569264429789347863"
-  }
+    "panelApps": "1569264429789347863",
+    "weeklyTop": "1569403323105157341",
+    "events": "1569036535070728322",
+    "news": "1569036526187446423"
+  },
+  "shopColors": [
+    {
+      "key": "rose",
+      "name": "Rose",
+      "hex": "C98A9A",
+      "roleId": "1569403327391735818"
+    },
+    {
+      "key": "mauve",
+      "name": "Mauve",
+      "hex": "A58A91",
+      "roleId": "1569403331623784578"
+    },
+    {
+      "key": "blush",
+      "name": "Blush",
+      "hex": "E0B4B4",
+      "roleId": "1569403335599984790"
+    },
+    {
+      "key": "sand",
+      "name": "Sand",
+      "hex": "C9B79C",
+      "roleId": "1569403341316825250"
+    },
+    {
+      "key": "sage",
+      "name": "Sage",
+      "hex": "8FA39A",
+      "roleId": "1569403345456726096"
+    },
+    {
+      "key": "sky",
+      "name": "Sky",
+      "hex": "8FA8C4",
+      "roleId": "1569403350162874452"
+    },
+    {
+      "key": "lilac",
+      "name": "Lilac",
+      "hex": "A592C9",
+      "roleId": "1569403355330252995"
+    },
+    {
+      "key": "ash",
+      "name": "Ash",
+      "hex": "A0A0A8",
+      "roleId": "1569403359256125665"
+    }
+  ]
 }

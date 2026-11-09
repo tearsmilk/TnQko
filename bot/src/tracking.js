@@ -1,4 +1,4 @@
-import { data, getUser, save, saveNow } from './store.js';
+import { getUser, save, saveNow, weekBump } from './store.js';
 
 const sessions = new Map(); // userId -> { last, channelId }
 const COIN_PER_MSG = 3, MSG_COOLDOWN = 60e3, VOICE_COIN_PER_30S = 1;
@@ -6,7 +6,7 @@ const COIN_PER_MSG = 3, MSG_COOLDOWN = 60e3, VOICE_COIN_PER_30S = 1;
 export function onMessage(m) {
   if (m.author.bot || !m.guild) return;
   const u = getUser(m.author.id);
-  u.messages += 1;
+  u.messages += 1; weekBump(m.author.id, 'm', 1);
   if (Date.now() - u.lastCoinMsg >= MSG_COOLDOWN) { u.coins += COIN_PER_MSG; u.lastCoinMsg = Date.now(); }
   save();
 }
@@ -22,7 +22,7 @@ function flush(id, state) {
   s.last = now;
   if (secs <= 0) return;
   const u = getUser(id);
-  u.voice += secs;
+  u.voice += secs; weekBump(id, 'v', secs);
   const humans = state?.channel?.members?.filter((x) => !x.user.bot).size ?? 0;
   if (humans >= 2 && !state.selfDeaf && !state.serverDeaf) u.coins += Math.floor(secs / 30) * VOICE_COIN_PER_30S;
 }

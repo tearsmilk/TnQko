@@ -5,6 +5,9 @@ import { handleButton, touch, startIdleCloser } from './tickets.js';
 import { handleApp } from './applications.js';
 import * as profile from './profile.js';
 import * as social from './social.js';
+import * as top from './top.js';
+import * as shop from './shop.js';
+import * as giveaway from './giveaway.js';
 import { onMessage, onVoice, startVoiceTracking } from './tracking.js';
 import { registerCommands } from './deploy.js';
 
@@ -18,13 +21,15 @@ client.once(Events.ClientReady, async (c) => {
   await registerCommands().catch((e) => console.error('command registration failed', e.message));
   startIdleCloser(c);
   startVoiceTracking(c);
+  top.startWeekly(c);
+  giveaway.startGiveawayTimer(c);
 });
 
 client.on(Events.InteractionCreate, async (i) => {
   try {
-    if (i.isChatInputCommand()) { (await handleCommand(i)) || (await profile.handleCommand(i)) || (await social.handleCommand(i)); }
+    if (i.isChatInputCommand()) { (await handleCommand(i)) || (await profile.handleCommand(i)) || (await social.handleCommand(i)) || (await top.handleCommand(i)) || (await shop.handleCommand(i)) || (await giveaway.handleCommand(i)); }
     else if ((i.isButton() || i.isModalSubmit()) && i.customId.startsWith('ap:')) await handleApp(i);
-    else if (i.isButton()) { (await social.handleButton(i)) || (await handleButton(i)); }
+    else if (i.isButton()) { (await social.handleButton(i)) || (await giveaway.handleButton(i)) || (await handleButton(i)); }
   } catch (e) {
     console.error(e);
     const msg = { content: '❌ Error / Ошибка', flags: MessageFlags.Ephemeral };

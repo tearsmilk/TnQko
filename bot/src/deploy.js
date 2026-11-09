@@ -4,7 +4,10 @@ import { cfg } from './config.js';
 import { commands as mod } from './moderation.js';
 import { commands as prof } from './profile.js';
 import { commands as soc } from './social.js';
-const commands = [...mod, ...prof, ...soc];
+import { commands as tp } from './top.js';
+import { commands as sh } from './shop.js';
+import { commands as gw } from './giveaway.js';
+const commands = [...mod, ...prof, ...soc, ...tp, ...sh, ...gw];
 
 export async function registerCommands() {
   const rest = new REST().setToken(process.env.BOT_TOKEN);
