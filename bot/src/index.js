@@ -32,7 +32,7 @@ client.on(Events.InteractionCreate, async (i) => {
     else if (i.isButton()) { (await social.handleButton(i)) || (await giveaway.handleButton(i)) || (await handleButton(i)); }
   } catch (e) {
     console.error(e);
-    const msg = { content: '❌ Error / Ошибка', flags: MessageFlags.Ephemeral };
+    const msg = { content: '❌ Ошибка', flags: MessageFlags.Ephemeral };
     if (i.replied || i.deferred) await i.followUp(msg).catch(() => {}); else await i.reply(msg).catch(() => {});
   }
 });

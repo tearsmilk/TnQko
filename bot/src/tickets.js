@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits as P, AttachmentBuilder, MessageFlags } from 'discord.js';
 import { cfg, L1, LEADERS } from './config.js';
 import { data, save } from './store.js';
-import { t, hasLevel, embed, sendLog } from './util.js';
+import { t, hasLevel, embed, msg, sendLog } from './util.js';
 
 const eph = MessageFlags.Ephemeral;
 export const TYPES = {
@@ -38,14 +38,10 @@ async function open(i, type) {
   });
   data.tickets[channel.id] = { id: n, channelId: channel.id, userId: i.user.id, type, claimedBy: null, last: Date.now(), openedAt: Date.now() };
   save();
-  await channel.send({
-    content: `${i.user} ${T.staff.map((r) => `<@&${r}>`).join(' ')}`,
-    allowedMentions: { users: [i.user.id], roles: T.staff.slice(0, 1) },
-    embeds: [embed(`${T.emoji} ${T.ru} / ${T.en} · #${n}`,
-      'Опиши ситуацию подробно, команда ответит как можно скорее.\nDescribe your situation in detail, the team will reply as soon as possible.')],
-    components: [controls(i)],
-  });
-  await sendLog(i.client, embed(`Ticket #${n} opened`, `${i.user} · ${T.en} · ${channel}`));
+  await channel.send(msg(embed(`${T.emoji} ${T.ru} · #${n}`,
+    `${i.user} ${T.staff.map((r) => `<@&${r}>`).join(' ')}\n\nОпиши ситуацию подробно, команда ответит как можно скорее.`),
+  [controls(i)], { allowedMentions: { users: [i.user.id], roles: T.staff.slice(0, 1) } }));
+  await sendLog(i.client, embed(`Тикет #${n} открыт`, `${i.user} · ${T.ru} · ${channel}`));
   await i.editReply(t(i, `✅ Тикет создан: ${channel}`, `✅ Ticket created: ${channel}`));
 }
 
@@ -56,7 +52,7 @@ async function claim(i, tk) {
   await i.reply({ content: t(i, `🙋 Тикет взял ${i.user}`, `🙋 Ticket claimed by ${i.user}`) });
 }
 
-async function close(i, tk, reason = 'closed') {
+async function close(i, tk, reason = 'закрыт') {
   const ch = i.channel ?? await i.client.channels.fetch(tk.channelId);
   const lines = [];
   let before;
@@ -68,9 +64,9 @@ async function close(i, tk, reason = 'closed') {
     if (batch.size < 100) break;
   }
   const file = new AttachmentBuilder(Buffer.from(lines.join('\n') || '(empty)', 'utf8'), { name: `ticket-${tk.id}.txt` });
-  await sendLog(i.client, embed(`Ticket #${tk.id} closed`, `Owner: <@${tk.userId}> · Type: ${tk.type} · Claimed: ${tk.claimedBy ? `<@${tk.claimedBy}>` : '—'}\nReason: ${reason}`), [file]);
+  await sendLog(i.client, embed(`Тикет #${tk.id} закрыт`, `Автор: <@${tk.userId}> · Тип: ${TYPES[tk.type].ru} · Взял: ${tk.claimedBy ? `<@${tk.claimedBy}>` : '—'}\nПричина: ${reason}`), [file]);
   delete data.tickets[tk.channelId]; save();
-  await ch.delete(`Ticket closed: ${reason}`).catch(() => {});
+  await ch.delete(`Тикет закрыт: ${reason}`).catch(() => {});
 }
 
 export async function handleButton(i) {
@@ -91,7 +87,7 @@ export async function handleButton(i) {
     const ok = i.user.id === tk.userId || hasLevel(i.member, TYPES[tk.type].staff);
     if (!ok) return i.reply({ content: '⛔', flags: eph }), true;
     await i.update({ content: '🔒', components: [] });
-    await close(i, tk, `by ${i.user.tag}`);
+    await close(i, tk, `${i.user.tag}`);
   }
   return true;
 }
@@ -104,7 +100,7 @@ export function startIdleCloser(client) {
   setInterval(async () => {
     for (const tk of Object.values(data.tickets)) {
       if (Date.now() - tk.last < IDLE_MS) continue;
-      try { const ch = await client.channels.fetch(tk.channelId); await close({ client, channel: ch }, tk, 'inactive 48h'); }
+      try { const ch = await client.channels.fetch(tk.channelId); await close({ client, channel: ch }, tk, 'неактивен 48 ч'); }
       catch { delete data.tickets[tk.channelId]; save(); }
     }
   }, 15 * 6e4);

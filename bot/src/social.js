@@ -1,26 +1,26 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { data, getUser, save } from './store.js';
-import { t, embed } from './util.js';
+import { t, embed, msg } from './util.js';
 import { displayName } from './profile.js';
 
 const eph = MessageFlags.Ephemeral;
 const TTL = 10 * 6e4, CLAN_COST = 500, CLAN_MAX = 15;
 const NAME_RE = /^[A-Za-z0-9Ѐ-ӿ _-]{2,20}$/;
-const userOpt = (o) => o.setName('user').setDescription('User / Пользователь').setRequired(true);
+const userOpt = (o) => o.setName('user').setDescription('Пользователь').setRequired(true);
 
 export const commands = [
-  new SlashCommandBuilder().setName('pair').setDescription('Pair / Пара')
-    .addSubcommand((s) => s.setName('propose').setDescription('Propose to a user / Предложить пару').addUserOption(userOpt))
-    .addSubcommand((s) => s.setName('break').setDescription('Break the pair / Расстаться')),
-  new SlashCommandBuilder().setName('clan').setDescription('Clans / Кланы')
+  new SlashCommandBuilder().setName('pair').setDescription('Пара')
+    .addSubcommand((s) => s.setName('propose').setDescription('Предложить пару').addUserOption(userOpt))
+    .addSubcommand((s) => s.setName('break').setDescription('Расстаться')),
+  new SlashCommandBuilder().setName('clan').setDescription('Кланы')
     .addSubcommand((s) => s.setName('create').setDescription(`Create a clan (${CLAN_COST} coins) / Создать клан`)
-      .addStringOption((o) => o.setName('name').setDescription('2-20 chars: letters, digits, space, _ -').setRequired(true).setMaxLength(20)))
-    .addSubcommand((s) => s.setName('invite').setDescription('Invite a user / Пригласить').addUserOption(userOpt))
-    .addSubcommand((s) => s.setName('kick').setDescription('Kick a member / Исключить').addUserOption(userOpt))
-    .addSubcommand((s) => s.setName('leave').setDescription('Leave your clan / Покинуть клан'))
-    .addSubcommand((s) => s.setName('disband').setDescription('Disband your clan / Распустить клан'))
-    .addSubcommand((s) => s.setName('info').setDescription('Clan info / Информация о клане')
-      .addStringOption((o) => o.setName('name').setDescription('Clan name (default: yours)'))),
+      .addStringOption((o) => o.setName('name').setDescription('2-20 символов: буквы, цифры, пробел, _ и -').setRequired(true).setMaxLength(20)))
+    .addSubcommand((s) => s.setName('invite').setDescription('Пригласить').addUserOption(userOpt))
+    .addSubcommand((s) => s.setName('kick').setDescription('Исключить').addUserOption(userOpt))
+    .addSubcommand((s) => s.setName('leave').setDescription('Покинуть клан'))
+    .addSubcommand((s) => s.setName('disband').setDescription('Распустить клан'))
+    .addSubcommand((s) => s.setName('info').setDescription('Информация о клане')
+      .addStringOption((o) => o.setName('name').setDescription('Название клана (по умолчанию твой)'))),
 ].map((c) => c.setContexts(0).toJSON());
 
 const buttons = (prefix, i, args) => new ActionRowBuilder().addComponents(
@@ -47,9 +47,8 @@ export async function handleCommand(i) {
     if (target.bot || target.id === i.user.id) return say(i, 'Выбери другого человека.', 'Pick someone else.'), true;
     if (me.pair) return say(i, 'У тебя уже есть пара.', 'You already have a pair.'), true;
     if (getUser(target.id).pair) return say(i, 'У этого пользователя уже есть пара.', 'That user already has a pair.'), true;
-    await i.reply({ content: `${target}`, allowedMentions: { users: [target.id] },
-      embeds: [embed('💞 Pair / Пара', `${i.user} → ${target}\n${t(i, 'Предложение действует 10 минут.', 'The proposal is valid for 10 minutes.')}`)],
-      components: [buttons('pr', i, `${i.user.id}:${target.id}`)] });
+    await i.reply(msg(embed('💞 Пара', `${i.user} → ${target}\nПредложение действует 10 минут.`),
+      [buttons('pr', i, `${i.user.id}:${target.id}`)], { allowedMentions: { users: [target.id] } }));
     return true;
   }
   if (i.commandName !== 'clan') return false;
@@ -68,10 +67,10 @@ export async function handleCommand(i) {
   } else if (sub === 'info') {
     const n = i.options.getString('name'), c = n ? findClan(n) : clan;
     if (!c) return say(i, 'Клан не найден.', 'Clan not found.'), true;
-    await i.reply({ embeds: [embed(`🛡️ ${c.name}`).addFields(
-      { name: t(i, 'Глава', 'Owner'), value: `<@${c.ownerId}>`, inline: true },
-      { name: t(i, 'Участники', 'Members'), value: `${c.members.length}/${CLAN_MAX}`, inline: true },
-      { name: t(i, 'Состав', 'Roster'), value: c.members.map((m) => `<@${m}>`).join(' ') })], allowedMentions: { parse: [] } });
+    await i.reply(msg(embed(`🛡️ ${c.name}`).addFields(
+      { name: 'Глава', value: `<@${c.ownerId}>` },
+      { name: 'Участники', value: `${c.members.length}/${CLAN_MAX}` },
+      { name: 'Состав', value: c.members.map((m) => `<@${m}>`).join(' ') }), [], { allowedMentions: { parse: [] } }));
   } else {
     if (!clan) return say(i, 'Ты не состоишь в клане.', 'You are not in a clan.'), true;
     const owner = clan.ownerId === i.user.id;
@@ -90,9 +89,8 @@ export async function handleCommand(i) {
       } else if (sub === 'invite') {
         if (target.bot || getUser(target.id).clanId) return say(i, 'Нельзя пригласить этого пользователя.', 'You cannot invite this user.'), true;
         if (clan.members.length >= CLAN_MAX) return say(i, `В клане максимум ${CLAN_MAX} участников.`, `A clan holds at most ${CLAN_MAX} members.`), true;
-        await i.reply({ content: `${target}`, allowedMentions: { users: [target.id] },
-          embeds: [embed(`🛡️ ${clan.name}`, t(i, `${target}, тебя приглашают в клан. Приглашение действует 10 минут.`, `${target}, you are invited to the clan. Valid for 10 minutes.`))],
-          components: [buttons('cl', i, `${clan.id}:${target.id}`)] });
+        await i.reply(msg(embed(`🛡️ ${clan.name}`, `${target}, тебя приглашают в клан. Приглашение действует 10 минут.`),
+          [buttons('cl', i, `${clan.id}:${target.id}`)], { allowedMentions: { users: [target.id] } }));
       }
     }
   }
@@ -104,20 +102,20 @@ export async function handleButton(i) {
   if (ns !== 'pr' && ns !== 'cl') return false;
   const toId = b;
   if (i.user.id !== toId && !(ns === 'pr' && action === 'decline' && i.user.id === a)) return i.reply({ content: '⛔', flags: eph }), true;
-  const done = (ru, en) => i.update({ content: t(i, ru, en), embeds: [], components: [] });
+  const done = (ru) => i.update(msg(embed('', ru)));
   if (Date.now() - Number(ts) > TTL) { await done('⌛ Предложение истекло.', '⌛ The offer has expired.'); return true; }
   if (action === 'decline') { await done('❌ Отклонено.', '❌ Declined.'); return true; }
   if (ns === 'pr') {
     const x = getUser(a), y = getUser(b);
     if (x.pair || y.pair) { await done('Кто-то из вас уже в паре.', 'One of you already has a pair.'); return true; }
     const since = Date.now(); x.pair = { id: b, since }; y.pair = { id: a, since }; save();
-    await i.update({ content: `💞 <@${a}> + <@${b}>`, embeds: [], components: [], allowedMentions: { parse: [] } });
+    await i.update(msg(embed('', `💞 <@${a}> + <@${b}>`), [], { allowedMentions: { parse: [] } }));
   } else {
     const clan = data.clans[a], u = getUser(b);
     if (!clan || u.clanId) { await done('Приглашение больше не действует.', 'The invite is no longer valid.'); return true; }
     if (clan.members.length >= CLAN_MAX) { await done('Клан заполнен.', 'The clan is full.'); return true; }
     clan.members.push(b); u.clanId = clan.id; save();
-    await i.update({ content: t(i, `✅ <@${b}> вступил в клан **${clan.name}**.`, `✅ <@${b}> joined clan **${clan.name}**.`), embeds: [], components: [], allowedMentions: { parse: [] } });
+    await i.update(msg(embed('', `✅ <@${b}> вступил в клан **${clan.name}**.`), [], { allowedMentions: { parse: [] } }));
   }
   return true;
 }

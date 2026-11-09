@@ -1,12 +1,12 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
 import { cfg, L2 } from './config.js';
 import { data, save } from './store.js';
-import { t, hasLevel, embed, sendLog } from './util.js';
+import { t, hasLevel, embed, msg, sendLog } from './util.js';
 
 const eph = MessageFlags.Ephemeral;
 export const APP_TYPES = {
-  mod: { ru: 'Модератор', en: 'Moderator', role: cfg.roles.mod, minAge: 16 },
-  media: { ru: 'Медиа', en: 'Media', role: cfg.roles.media, minAge: 13 },
+  mod: { ru: 'Модератор', en: 'Moderator', emoji: '🛡️', role: cfg.roles.mod, minAge: 16 },
+  media: { ru: 'Медиа', en: 'Media', emoji: '🎬', role: cfg.roles.media, minAge: 13 },
 };
 const COOLDOWN = 14 * 864e5;
 const input = (id, label, style, req = true, max = 1000) =>
@@ -22,6 +22,13 @@ function modal(i, type) {
     input('links', t(i, 'Ссылки на работы (необязательно)', 'Links to your work (optional)'), TextInputStyle.Short, false, 300));
 }
 
+const reviewRow = (id) => new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId(`ap:accept:${id}`).setLabel('Принять').setEmoji('✅').setStyle(ButtonStyle.Success),
+  new ButtonBuilder().setCustomId(`ap:decline:${id}`).setLabel('Отклонить').setEmoji('❌').setStyle(ButtonStyle.Danger));
+const appCard = (a) => embed(`📝 Заявка: ${APP_TYPES[a.type].ru} #${a.id}`, null).setThumbnail(a.avatar).addFields(
+  { name: 'Заявитель', value: `<@${a.userId}> (${a.userId})` }, { name: 'Возраст · часовой пояс', value: `${a.age} · ${a.tz}` },
+  { name: 'Опыт', value: a.exp }, { name: 'Мотивация', value: a.why }, { name: 'Ссылки', value: a.links });
+
 async function submit(i, type) {
   const A = APP_TYPES[type];
   const age = parseInt(i.fields.getTextInputValue('age'), 10);
@@ -33,33 +40,27 @@ async function submit(i, type) {
   if (i.member.roles.cache.has(A.role)) return i.reply({ content: t(i, 'У тебя уже есть эта роль.', 'You already have this role.'), flags: eph });
   const id = ++data.appCounter;
   const f = (k) => i.fields.getTextInputValue(k) || '—';
-  const msg = await (await i.client.channels.fetch(cfg.channels.appReview)).send({
-    embeds: [embed(`📝 ${A.en} application #${id}`, null).setThumbnail(i.user.displayAvatarURL()).addFields(
-      { name: 'Applicant', value: `${i.user} (${i.user.id})`, inline: true }, { name: 'Age', value: String(age), inline: true }, { name: 'Timezone', value: f('tz'), inline: true },
-      { name: 'Experience', value: f('exp') }, { name: 'Motivation', value: f('why') }, { name: 'Links', value: f('links') })],
-    components: [new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`ap:accept:${id}`).setLabel('Accept / Принять').setEmoji('✅').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(`ap:decline:${id}`).setLabel('Decline / Отклонить').setEmoji('❌').setStyle(ButtonStyle.Danger))],
-  });
-  data.apps[id] = { id, userId: i.user.id, type, status: 'pending', messageId: msg.id, at: Date.now() }; save();
+  const app = { id, userId: i.user.id, type, status: 'pending', at: Date.now(), avatar: i.user.displayAvatarURL(), tag: i.user.tag,
+    age, tz: f('tz'), exp: f('exp'), why: f('why'), links: f('links') };
+  const sent = await (await i.client.channels.fetch(cfg.channels.appReview)).send(msg(appCard(app), [reviewRow(id)]));
+  data.apps[id] = { ...app, messageId: sent.id }; save();
   await i.reply({ content: t(i, '✅ Заявка отправлена. Мы сообщим о решении в личные сообщения.', '✅ Application sent. We will DM you with the decision.'), flags: eph });
 }
 
 async function decide(i, id, accepted, reason) {
   const app = data.apps[id];
-  if (!app || app.status !== 'pending') return i.reply({ content: 'Already processed.', flags: eph });
+  if (!app || app.status !== 'pending') return i.reply({ content: 'Уже обработано.', flags: eph });
   app.status = accepted ? 'accepted' : 'declined'; app.decidedAt = Date.now(); app.by = i.user.id; save();
   const A = APP_TYPES[app.type];
   const user = await i.client.users.fetch(app.userId);
   if (accepted) { const m = await i.guild.members.fetch(app.userId).catch(() => null); await m?.roles.add(A.role, `Application #${id}`).catch(() => {}); }
-  await user.send({ embeds: [embed(accepted ? '✅ Заявка принята / Application accepted' : '❌ Заявка отклонена / Application declined',
-    `**${A.ru} / ${A.en}**${reason ? `\n**Причина / Reason:** ${reason}` : ''}`)] }).catch(() => {});
-  const e = i.message.embeds[0].toJSON(); e.color = accepted ? 0x6fa380 : 0xa05a5a;
-  e.footer = { text: `${accepted ? 'Accepted' : 'Declined'} by ${i.user.tag}${reason ? ` — ${reason}` : ''}` };
-  const patch = { embeds: [e], components: [] };
+  await user.send(msg(embed(accepted ? '✅ Заявка принята' : '❌ Заявка отклонена',
+    `**${A.ru}**${reason ? `\n**Причина:** ${reason}` : ''}`))).catch(() => {});
+  const card = appCard(app).setColor(accepted ? 0x6fa380 : 0xa05a5a).setFooter({ text: `${accepted ? 'Принято' : 'Отклонено'}: ${i.user.tag}${reason ? ` — ${reason}` : ''}` });
+  const patch = msg(card);
   await (i.isModalSubmit() ? i.message.edit(patch) : i.update(patch));
   if (i.isModalSubmit()) await i.reply({ content: '👌', flags: eph });
-  await sendLog(i.client, embed(`Application #${id} ${app.status}`, `<@${app.userId}> · ${A.en} · by ${i}${reason ? `\n${reason}` : ''}`));
+  await sendLog(i.client, embed(`Заявка #${id}: ${app.status === 'accepted' ? 'принята' : 'отклонена'}`, `<@${app.userId}> · ${A.ru} · решил(а) ${i}${reason ? `\n${reason}` : ''}`));
 }
 
 export async function handleApp(i) {
@@ -70,7 +71,7 @@ export async function handleApp(i) {
   if (!hasLevel(i.member, L2)) { await i.reply({ content: '⛔', flags: eph }); return true; }
   if (i.isButton() && action === 'accept') await decide(i, arg, true);
   else if (i.isButton() && action === 'decline')
-    await i.showModal(new ModalBuilder().setCustomId(`ap:reason:${arg}`).setTitle('Decline / Отклонить').addComponents(input('reason', 'Reason / Причина', TextInputStyle.Paragraph, false, 400)));
+    await i.showModal(new ModalBuilder().setCustomId(`ap:reason:${arg}`).setTitle('Отклонить').addComponents(input('reason', 'Причина', TextInputStyle.Paragraph, false, 400)));
   else if (i.isModalSubmit() && action === 'reason') await decide(i, arg, false, i.fields.getTextInputValue('reason') || null);
   return true;
 }

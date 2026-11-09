@@ -1,26 +1,26 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { cfg, L2 } from './config.js';
 import { data, getUser, save } from './store.js';
-import { embed, t, hasLevel, parseDuration, sendLog } from './util.js';
+import { embed, msg, t, hasLevel, parseDuration, sendLog } from './util.js';
 
 const eph = MessageFlags.Ephemeral;
-export const commands = [new SlashCommandBuilder().setName('giveaway').setDescription('Giveaways / Розыгрыши (staff)')
-  .addSubcommand((s) => s.setName('start').setDescription('Start a giveaway / Начать розыгрыш')
-    .addStringOption((o) => o.setName('prize').setDescription('Prize / Приз').setRequired(true).setMaxLength(100))
+export const commands = [new SlashCommandBuilder().setName('giveaway').setDescription('Розыгрыши (для стаффа)')
+  .addSubcommand((s) => s.setName('start').setDescription('Начать розыгрыш')
+    .addStringOption((o) => o.setName('prize').setDescription('Приз').setRequired(true).setMaxLength(100))
     .addStringOption((o) => o.setName('duration').setDescription('10m, 2h, 1d (max 28d)').setRequired(true))
     .addIntegerOption((o) => o.setName('winners').setDescription('1-10').setMinValue(1).setMaxValue(10))
-    .addIntegerOption((o) => o.setName('coins').setDescription('Auto-reward coins per winner').setMinValue(1).setMaxValue(100000))
-    .addIntegerOption((o) => o.setName('crystals').setDescription('Auto-reward crystals per winner').setMinValue(1).setMaxValue(1000)))
-  .addSubcommand((s) => s.setName('end').setDescription('End a giveaway now / Завершить сейчас')
-    .addIntegerOption((o) => o.setName('id').setDescription('Giveaway ID').setRequired(true)))
+    .addIntegerOption((o) => o.setName('coins').setDescription('Автонаграда монетами каждому победителю').setMinValue(1).setMaxValue(100000))
+    .addIntegerOption((o) => o.setName('crystals').setDescription('Автонаграда кристаллами каждому победителю').setMinValue(1).setMaxValue(1000)))
+  .addSubcommand((s) => s.setName('end').setDescription('Завершить сейчас')
+    .addIntegerOption((o) => o.setName('id').setDescription('ID розыгрыша').setRequired(true)))
   .setContexts(0).toJSON()];
 
 const view = (g, ended) => embed(`🎉 ${g.prize}`, ended
-  ? (g.winnerIds.length ? `**Winners / Победители:** ${g.winnerIds.map((x) => `<@${x}>`).join(', ')}` : 'No participants / Нет участников')
-  : `Нажми кнопку, чтобы участвовать / Press the button to join\n**Ends / Конец:** <t:${Math.floor(g.endsAt / 1000)}:R>\n**Winners / Победителей:** ${g.winners}`)
-  .setFooter({ text: `ID ${g.id}${g.coins ? ` · +${g.coins} coins` : ''}${g.crystals ? ` · +${g.crystals} crystals` : ''}` });
+  ? (g.winnerIds.length ? `**Победители:** ${g.winnerIds.map((x) => `<@${x}>`).join(', ')}` : 'Нет участников')
+  : `Нажми кнопку, чтобы участвовать\n**Конец:** <t:${Math.floor(g.endsAt / 1000)}:R>\n**Победителей:** ${g.winners}`)
+  .setFooter({ text: `ID ${g.id}${g.coins ? ` · +${g.coins} монет` : ''}${g.crystals ? ` · +${g.crystals} кристаллов` : ''}` });
 const joinRow = (g, off = false) => new ActionRowBuilder().addComponents(
-  new ButtonBuilder().setCustomId(`gw:join:${g.id}`).setLabel('Join / Участвовать').setEmoji('🎉').setStyle(ButtonStyle.Primary).setDisabled(off));
+  new ButtonBuilder().setCustomId(`gw:join:${g.id}`).setLabel('Участвовать').setEmoji('🎉').setStyle(ButtonStyle.Primary).setDisabled(off));
 
 async function finish(client, g) {
   if (g.ended) return;
@@ -32,11 +32,11 @@ async function finish(client, g) {
   save();
   try {
     const ch = await client.channels.fetch(g.channelId);
-    await ch.messages.edit(g.messageId, { embeds: [view(g, true)], components: [joinRow(g, true)], allowedMentions: { parse: [] } });
-    await ch.send({ content: g.winnerIds.length ? `🎉 ${g.winnerIds.map((x) => `<@${x}>`).join(', ')} — **${g.prize}**!` : `🎉 **${g.prize}**: нет участников / no participants`,
+    await ch.messages.edit(g.messageId, msg(view(g, true), [joinRow(g, true)], { allowedMentions: { parse: [] } }));
+    await ch.send({ content: g.winnerIds.length ? `🎉 ${g.winnerIds.map((x) => `<@${x}>`).join(', ')} — **${g.prize}**!` : `🎉 **${g.prize}**: нет участников`,
       reply: { messageReference: g.messageId, failIfNotExists: false }, allowedMentions: { users: g.winnerIds } });
   } catch (e) { console.error('giveaway finish', e.message); }
-  await sendLog(client, embed(`Giveaway #${g.id} ended`, `${g.prize} · winners: ${g.winnerIds.map((x) => `<@${x}>`).join(', ') || '—'}`));
+  await sendLog(client, embed(`Розыгрыш #${g.id} завершён`, `${g.prize} · победители: ${g.winnerIds.map((x) => `<@${x}>`).join(', ') || '—'}`));
 }
 export const startGiveawayTimer = (client) => setInterval(() => {
   for (const g of Object.values(data.giveaways)) if (!g.ended && Date.now() >= g.endsAt) finish(client, g);
@@ -47,18 +47,18 @@ export async function handleCommand(i) {
   if (!hasLevel(i.member, L2)) return i.reply({ content: '⛔', flags: eph }), true;
   if (i.options.getSubcommand() === 'end') {
     const g = data.giveaways[i.options.getInteger('id')];
-    if (!g || g.ended) return i.reply({ content: 'Not found / Не найден.', flags: eph }), true;
+    if (!g || g.ended) return i.reply({ content: 'Не найден.', flags: eph }), true;
     await finish(i.client, g); return i.reply({ content: '✅', flags: eph }), true;
   }
   const ms = parseDuration(i.options.getString('duration'));
-  if (!ms) return i.reply({ content: 'Format: 10m, 2h, 1d (max 28d).', flags: eph }), true;
+  if (!ms) return i.reply({ content: 'Формат: 10m, 2h, 1d (максимум 28d).', flags: eph }), true;
   const id = ++data.giveawayCounter;
   const g = { id, prize: i.options.getString('prize'), endsAt: Date.now() + ms, winners: i.options.getInteger('winners') ?? 1,
     coins: i.options.getInteger('coins') ?? 0, crystals: i.options.getInteger('crystals') ?? 0, entrants: [], ended: false, hostId: i.user.id, winnerIds: [] };
   const ch = await i.client.channels.fetch(cfg.channels.events);
-  const m = await ch.send({ embeds: [view(g, false)], components: [joinRow(g)] });
+  const m = await ch.send(msg(view(g, false), [joinRow(g)]));
   Object.assign(g, { channelId: ch.id, messageId: m.id }); data.giveaways[id] = g; save();
-  await i.reply({ content: `✅ Giveaway #${id} → ${ch}`, flags: eph });
+  await i.reply({ content: `✅ Розыгрыш #${id} опубликован в ${ch}`, flags: eph });
   return true;
 }
 

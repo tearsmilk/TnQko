@@ -13,19 +13,19 @@ const RENDER = new URL('../render_profile.py', import.meta.url).pathname;
 const MAX_BANNER = 8 * 1024 * 1024;
 
 export const commands = [
-  new SlashCommandBuilder().setName('profile').setDescription('Profile card / Карточка профиля')
-    .addSubcommand((s) => s.setName('view').setDescription('Show a profile / Показать профиль')
-      .addUserOption((o) => o.setName('user').setDescription('User / Пользователь')))
-    .addSubcommand((s) => s.setName('banner').setDescription('Set your banner / Установить баннер')
-      .addAttachmentOption((o) => o.setName('image').setDescription('PNG, JPG, WEBP or GIF, up to 8 MB').setRequired(true)))
-    .addSubcommand((s) => s.setName('banner-reset').setDescription('Remove banner / Убрать баннер')
-      .addUserOption((o) => o.setName('user').setDescription('Staff only / Только для стаффа'))),
-  new SlashCommandBuilder().setName('daily').setDescription('Daily reward / Ежедневная награда'),
-  new SlashCommandBuilder().setName('economy').setDescription('Staff: change balance / Изменить баланс')
-    .addSubcommand((s) => s.setName('give').setDescription('Add or remove currency')
-      .addUserOption((o) => o.setName('user').setDescription('User').setRequired(true))
-      .addStringOption((o) => o.setName('currency').setDescription('Currency').setRequired(true).addChoices({ name: 'coins', value: 'coins' }, { name: 'crystals', value: 'crystals' }))
-      .addIntegerOption((o) => o.setName('amount').setDescription('Can be negative').setMinValue(-1000000).setMaxValue(1000000).setRequired(true))),
+  new SlashCommandBuilder().setName('profile').setDescription('Карточка профиля')
+    .addSubcommand((s) => s.setName('view').setDescription('Показать профиль')
+      .addUserOption((o) => o.setName('user').setDescription('Пользователь')))
+    .addSubcommand((s) => s.setName('banner').setDescription('Установить баннер')
+      .addAttachmentOption((o) => o.setName('image').setDescription('PNG, JPG, WEBP или GIF до 8 МБ').setRequired(true)))
+    .addSubcommand((s) => s.setName('banner-reset').setDescription('Убрать баннер')
+      .addUserOption((o) => o.setName('user').setDescription('Только для стаффа'))),
+  new SlashCommandBuilder().setName('daily').setDescription('Ежедневная награда'),
+  new SlashCommandBuilder().setName('economy').setDescription('Для стаффа: изменить баланс')
+    .addSubcommand((s) => s.setName('give').setDescription('Выдать или забрать валюту')
+      .addUserOption((o) => o.setName('user').setDescription('Пользователь').setRequired(true))
+      .addStringOption((o) => o.setName('currency').setDescription('Валюта').setRequired(true).addChoices({ name: 'монеты', value: 'coins' }, { name: 'кристаллы', value: 'crystals' }))
+      .addIntegerOption((o) => o.setName('amount').setDescription('Можно отрицательное').setMinValue(-1000000).setMaxValue(1000000).setRequired(true))),
 ].map((c) => c.setContexts(0).toJSON());
 
 const nameCache = new Map();
@@ -89,7 +89,7 @@ export async function handleCommand(i) {
       if (target.id !== i.user.id && !hasLevel(i.member, L1)) return i.reply({ content: t(i, '⛔ Только стафф может сбрасывать чужие баннеры.', '⛔ Only staff can reset others\' banners.'), flags: eph }), true;
       if (existsSync(bannerPath(target.id))) unlinkSync(bannerPath(target.id));
       getUser(target.id).banner = false; save();
-      if (target.id !== i.user.id) await sendLog(i.client, embed('Banner reset', `${i.user} reset the banner of ${target}`));
+      if (target.id !== i.user.id) await sendLog(i.client, embed('Сброс баннера', `${i.user} сбросил(а) баннер ${target}`));
       await i.reply({ content: '✅', flags: eph });
     }
     return true;
@@ -116,7 +116,7 @@ export async function handleCommand(i) {
     const u = getUser(user.id);
     if (u[cur] + amt < 0) return i.reply({ content: t(i, 'Баланс не может быть отрицательным.', 'Balance cannot go negative.'), flags: eph }), true;
     u[cur] += amt; save();
-    await sendLog(i.client, embed('Economy', `${i.user} → ${user}: **${amt > 0 ? '+' : ''}${amt}** ${cur} (now ${u[cur]})`));
+    await sendLog(i.client, embed('Экономика', `${i.user} → ${user}: **${amt > 0 ? '+' : ''}${amt}** ${cur === 'coins' ? 'монет' : 'кристаллов'} (теперь ${u[cur]})`));
     await i.reply({ content: `✅ ${user}: ${u[cur]} ${cur}`, flags: eph });
     return true;
   }

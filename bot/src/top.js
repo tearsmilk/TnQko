@@ -1,15 +1,16 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { cfg } from './config.js';
 import { data, getUser, save, nextMonday } from './store.js';
-import { embed, t } from './util.js';
+import { embed, msg, t } from './util.js';
 
-export const commands = [new SlashCommandBuilder().setName('top').setDescription('Leaderboard / Топ участников')
-  .addStringOption((o) => o.setName('category').setDescription('What to rank').setRequired(true).addChoices(
-    { name: 'messages / сообщения', value: 'messages' }, { name: 'voice / войс', value: 'voice' },
-    { name: 'coins / монеты', value: 'coins' }, { name: 'crystals / кристаллы', value: 'crystals' }))
-  .addStringOption((o) => o.setName('period').setDescription('Period').addChoices({ name: 'all time / всё время', value: 'all' }, { name: 'this week / неделя', value: 'week' }))
+export const commands = [new SlashCommandBuilder().setName('top').setDescription('Топ участников')
+  .addStringOption((o) => o.setName('category').setDescription('Что показать').setRequired(true).addChoices(
+    { name: 'сообщения', value: 'messages' }, { name: 'войс', value: 'voice' },
+    { name: 'монеты', value: 'coins' }, { name: 'кристаллы', value: 'crystals' }))
+  .addStringOption((o) => o.setName('period').setDescription('Период').addChoices({ name: 'всё время', value: 'all' }, { name: 'неделя', value: 'week' }))
   .setContexts(0).toJSON()];
 
+const NAMES = { messages: 'сообщения', voice: 'войс', coins: 'монеты', crystals: 'кристаллы' };
 const medal = (n) => ['🥇', '🥈', '🥉'][n] ?? `**${n + 1}.**`;
 const hours = (s) => `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`;
 const fmt = { messages: (v) => `${v} msg`, voice: hours, coins: (v) => `${v} 🪙`, crystals: (v) => `${v} 💎` };
@@ -27,7 +28,7 @@ export async function handleCommand(i) {
   if (i.commandName !== 'top') return false;
   const category = i.options.getString('category'), period = i.options.getString('period') ?? 'all';
   if (period === 'week' && !['messages', 'voice'].includes(category)) return i.reply({ content: t(i, 'За неделю доступны только сообщения и войс.', 'Weekly top supports only messages and voice.'), flags: 64 }), true;
-  await i.reply({ embeds: [embed(`🏆 Top · ${category}${period === 'week' ? ' · week' : ''}`, lines(rank(category, period), category))], allowedMentions: { parse: [] } });
+  await i.reply(msg(embed(`🏆 Топ · ${NAMES[category]}${period === 'week' ? ' · неделя' : ''}`, lines(rank(category, period), category)), [], { allowedMentions: { parse: [] } }));
   return true;
 }
 
@@ -35,11 +36,11 @@ const REWARDS = [300, 200, 100];
 export async function weeklyJob(client) {
   data.week ??= { next: nextMonday(), users: {} };
   if (Date.now() < data.week.next) return;
-  const msg = rank('messages', 'week'), voice = rank('voice', 'week');
-  for (const list of [msg, voice]) list.slice(0, 3).forEach(([id], n) => { getUser(id).coins += REWARDS[n]; });
-  const e = embed('🏆 Топ недели / Weekly top', 'Награда: 🥇 300 · 🥈 200 · 🥉 100 монет в каждой категории / Rewards: 🥇 300 · 🥈 200 · 🥉 100 coins per category.')
-    .addFields({ name: '💬 Messages / Сообщения', value: lines(msg, 'messages') }, { name: '🎧 Voice / Войс', value: lines(voice, 'voice') });
+  const byMsg = rank('messages', 'week'), voice = rank('voice', 'week');
+  for (const list of [byMsg, voice]) list.slice(0, 3).forEach(([id], n) => { getUser(id).coins += REWARDS[n]; });
+  const e = embed('🏆 Топ недели', 'Награда в каждой категории: 🥇 300 · 🥈 200 · 🥉 100 монет.')
+    .addFields({ name: '💬 Сообщения', value: lines(byMsg, 'messages') }, { name: '🎧 Войс', value: lines(voice, 'voice') });
   data.week = { next: nextMonday(), users: {} }; save();
-  try { await (await client.channels.fetch(cfg.channels.weeklyTop)).send({ embeds: [e], allowedMentions: { parse: [] } }); } catch (err) { console.error('weekly top', err.message); }
+  try { await (await client.channels.fetch(cfg.channels.weeklyTop)).send(msg(e, [], { allowedMentions: { parse: [] } })); } catch (err) { console.error('weekly top', err.message); }
 }
 export const startWeekly = (client) => { weeklyJob(client); setInterval(() => weeklyJob(client), 10 * 6e4); };

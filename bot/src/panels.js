@@ -1,4 +1,4 @@
-// Posts the ticket & application panels (Components V2). Run once: npm run panels
+// Публикует панели тикетов и заявок (Components V2). Запуск один раз: npm run panels
 import 'dotenv/config';
 import { REST, Routes } from 'discord.js';
 import { cfg } from './config.js';
@@ -14,18 +14,17 @@ const box = (...c) => ({ flags: 32768, components: [{ type: 17, accent_color: cf
 const tickets = box(
   T('# 🎫 Поддержка и обращения\nНужна помощь, хочешь пожаловаться или предложить сотрудничество? Выбери тип обращения, и мы откроем приватный канал.'),
   SEP,
-  T('# 🎫 Support & tickets\nNeed help, want to report something or propose a collaboration? Pick a ticket type and we will open a private channel.'),
-  SEP,
-  { type: 1, components: Object.entries(TYPES).map(([k, v]) => btn(`tk:open:${k}`, `${v.ru} / ${v.en}`, v.emoji)) });
+  { type: 1, components: Object.entries(TYPES).map(([k, v]) => btn(`tk:open:${k}`, v.ru, v.emoji)) });
 
 const apps = box(
-  T('# 📝 Заявки в команду\nХочешь стать частью команды? Подай заявку и расскажи о себе. Решение придёт в личные сообщения.\n**Модератор** — от 16 лет. **Медиа** — от 13 лет.\nПовторная заявка после отказа возможна через 14 дней.'),
+  T('# 📝 Заявки в команду\nХочешь стать частью команды? Выбери направление, заполни анкету, и решение придёт в личные сообщения.\n' +
+    Object.values(APP_TYPES).map((a) => `**${a.ru}** — от ${a.minAge} лет`).join('\n') + '\nПовторная заявка после отказа возможна через 14 дней.'),
   SEP,
-  T('# 📝 Team applications\nWant to join the team? Send an application and tell us about yourself. The decision comes by DM.\n**Moderator** — 16+. **Media** — 13+.\nYou can re-apply 14 days after a decline.'),
-  SEP,
-  { type: 1, components: [btn('ap:open:mod', 'Модератор / Moderator', '🛡️'), btn('ap:open:media', 'Медиа / Media', '🎬')] });
+  { type: 1, components: Object.entries(APP_TYPES).map(([k, a]) => btn(`ap:open:${k}`, a.ru, a.emoji)) });
 
-for (const [ch, body] of [[cfg.channels.panelTickets, tickets], [cfg.channels.panelApps, apps]]) {
+const only = process.argv[2];
+for (const [name, ch, body] of [['tickets', cfg.channels.panelTickets, tickets], ['apps', cfg.channels.panelApps, apps]]) {
+  if (only && only !== name) continue;
   const m = await rest.post(Routes.channelMessages(ch), { body });
-  console.log('posted', ch, m.id);
+  console.log('опубликовано', name, m.id);
 }

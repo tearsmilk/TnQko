@@ -1,13 +1,42 @@
-import { EmbedBuilder } from 'discord.js';
 import { cfg } from './config.js';
-export const loc = (i) => (String(i.locale ?? i.guildLocale ?? '').startsWith('ru') ? 'ru' : 'en');
-export const t = (i, ru, en) => (loc(i) === 'ru' ? ru : en);
+/** Бот работает только на русском: английский аргумент оставлен для совместимости и игнорируется. */
+export const t = (_i, ru) => ru;
 export const hasLevel = (member, roles) => member?.roles?.cache?.some((x) => roles.includes(x.id)) || member?.permissions?.has('Administrator');
-export const embed = (title, desc) => new EmbedBuilder().setColor(cfg.color).setTitle(title).setDescription(desc ?? null).setTimestamp();
+export const V2 = 32768; // MessageFlags.IsComponentsV2
+const clip = (x, n = 3900) => (String(x).length > n ? `${String(x).slice(0, n - 1)}…` : String(x));
+
+/** Карточка Components V2 с интерфейсом, как у EmbedBuilder. Отправляется через msg(). */
+class Card {
+  constructor(title, desc) { this.title = title; this.desc = desc ?? null; this.fields = []; this.footer = null; this.thumb = null; this.color = cfg.color; }
+  setColor(c) { this.color = c; return this; }
+  setThumbnail(url) { this.thumb = url; return this; }
+  setFooter(f) { this.footer = f.text; return this; }
+  setTimestamp() { return this; }
+  addFields(...f) { this.fields.push(...f.flat()); return this; }
+  toJSON(rows = [], files = []) {
+    const text = (content) => ({ type: 10, content });
+    const head = this.title ? `### ${this.title}${this.desc ? `\n${this.desc}` : ''}` : (this.desc ?? '');
+    const body = this.fields.map((f) => `**${f.name}**\n${f.value}`).join('\n\n');
+    const parts = [this.thumb
+      ? { type: 9, components: [text(clip(head))], accessory: { type: 11, media: { url: this.thumb } } }
+      : text(clip(head))];
+    if (body) parts.push({ type: 14, divider: true, spacing: 1 }, text(clip(body)));
+    if (this.footer) parts.push({ type: 14, divider: false, spacing: 1 }, text(`-# ${clip(this.footer, 200)}`));
+    for (const f of files) parts.push({ type: 13, file: { url: `attachment://${f.name}` } });
+    parts.push(...rows);
+    return { type: 17, accent_color: this.color, components: parts };
+  }
+}
+export const embed = (title, desc) => new Card(title, desc);
+/** Собирает сообщение Components V2 из карточки (+ кнопки / файлы / доп. параметры). */
+export const msg = (card, rows = [], extra = {}) => {
+  const { flags = 0, files, ...rest } = extra;
+  return { ...rest, flags: flags | V2, files, components: [card.toJSON(rows, files ?? [])] };
+};
 export async function sendLog(client, e, files) {
   try {
     const ch = await client.channels.fetch(cfg.channels.logs);
-    await ch.send({ embeds: [e], files });
+    await ch.send(msg(e, [], { files }));
   } catch (err) { console.error('log failed', err.message); }
 }
 export function parseDuration(s) {
