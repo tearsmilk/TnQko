@@ -7,7 +7,8 @@ import { commands as soc } from './social.js';
 import { commands as tp } from './top.js';
 import { commands as sh } from './shop.js';
 import { commands as gw } from './giveaway.js';
-const commands = [...mod, ...prof, ...soc, ...tp, ...sh, ...gw];
+import { commands as evc } from './events.js';
+const commands = [...mod, ...prof, ...soc, ...tp, ...sh, ...gw, ...evc];
 
 export async function registerCommands() {
   const rest = new REST().setToken(process.env.BOT_TOKEN);

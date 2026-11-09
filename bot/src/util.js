@@ -7,9 +7,10 @@ const clip = (x, n = 3900) => (String(x).length > n ? `${String(x).slice(0, n - 
 
 /** Карточка Components V2 с интерфейсом, как у EmbedBuilder. Отправляется через msg(). */
 class Card {
-  constructor(title, desc) { this.title = title; this.desc = desc ?? null; this.fields = []; this.footer = null; this.thumb = null; this.color = cfg.color; }
+  constructor(title, desc) { this.title = title; this.desc = desc ?? null; this.fields = []; this.footer = null; this.thumb = null; this.image = null; this.color = cfg.color; }
   setColor(c) { this.color = c; return this; }
   setThumbnail(url) { this.thumb = url; return this; }
+  setImage(url) { this.image = url; return this; }
   setFooter(f) { this.footer = f.text; return this; }
   setTimestamp() { return this; }
   addFields(...f) { this.fields.push(...f.flat()); return this; }
@@ -21,6 +22,7 @@ class Card {
       ? { type: 9, components: [text(clip(head))], accessory: { type: 11, media: { url: this.thumb } } }
       : text(clip(head))];
     if (body) parts.push({ type: 14, divider: true, spacing: 1 }, text(clip(body)));
+    if (this.image) parts.push({ type: 12, items: [{ media: { url: this.image } }] });
     if (this.footer) parts.push({ type: 14, divider: false, spacing: 1 }, text(`-# ${clip(this.footer, 200)}`));
     for (const f of files) parts.push({ type: 13, file: { url: `attachment://${f.name}` } });
     parts.push(...rows);
