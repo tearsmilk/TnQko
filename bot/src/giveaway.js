@@ -7,10 +7,9 @@ const eph = MessageFlags.Ephemeral;
 export const commands = [new SlashCommandBuilder().setName('giveaway').setDescription('Розыгрыши (для стаффа)')
   .addSubcommand((s) => s.setName('start').setDescription('Начать розыгрыш')
     .addStringOption((o) => o.setName('prize').setDescription('Приз').setRequired(true).setMaxLength(100))
-    .addStringOption((o) => o.setName('duration').setDescription('10m, 2h, 1d (max 28d)').setRequired(true))
+    .addStringOption((o) => o.setName('duration').setDescription('Срок: 10m, 2h, 1d (максимум 28d)').setRequired(true))
     .addIntegerOption((o) => o.setName('winners').setDescription('1-10').setMinValue(1).setMaxValue(10))
-    .addIntegerOption((o) => o.setName('coins').setDescription('Автонаграда монетами каждому победителю').setMinValue(1).setMaxValue(100000))
-    .addIntegerOption((o) => o.setName('crystals').setDescription('Автонаграда кристаллами каждому победителю').setMinValue(1).setMaxValue(100000)))
+    .addIntegerOption((o) => o.setName('coins').setDescription('Автонаграда монетами каждому победителю').setMinValue(1).setMaxValue(100000)))
   .addSubcommand((s) => s.setName('end').setDescription('Завершить сейчас')
     .addIntegerOption((o) => o.setName('id').setDescription('ID розыгрыша').setRequired(true)))
   .setContexts(0).toJSON()];
@@ -19,7 +18,7 @@ const view = (g, ended) => {
   const bullets = ended
     ? [g.winnerIds.length ? `**Победители:** ${g.winnerIds.map((x) => `<@${x}>`).join(', ')}` : 'Участников не было']
     : [`**Конец:** <t:${Math.floor(g.endsAt / 1000)}:R>`, `**Победителей:** ${g.winners}`, 'Нажми кнопку ниже, чтобы участвовать'];
-  const rewards = [g.coins ? `**Награда:** ${g.coins} 🪙` : null, g.crystals ? `**Кристаллы:** ${g.crystals} 💎` : null].filter(Boolean);
+  const rewards = g.coins ? [`**Награда:** ${g.coins} 🪙`] : [];
   return activity({ title: `🎁 Розыгрыш — ${g.prize}`, subtitle: ended ? '✅ Завершён' : '🔴 Идёт сейчас', bullets, rewards, footer: `Розыгрыш #${g.id}`, color: ended ? 0x7a7a85 : undefined });
 };
 const joinRow = (g, off = false) => new ActionRowBuilder().addComponents(
@@ -31,7 +30,7 @@ async function finish(client, g) {
   const pool = [...g.entrants];
   g.winnerIds = [];
   while (pool.length && g.winnerIds.length < g.winners) g.winnerIds.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-  for (const id of g.winnerIds) { const u = getUser(id); u.coins += g.coins || 0; u.crystals += g.crystals || 0; }
+  for (const id of g.winnerIds) { const u = getUser(id); u.coins += g.coins || 0; }
   save();
   try {
     const ch = await client.channels.fetch(g.channelId);
@@ -57,7 +56,7 @@ export async function handleCommand(i) {
   if (!ms) return i.reply({ content: 'Формат: 10m, 2h, 1d (максимум 28d).', flags: eph }), true;
   const id = ++data.giveawayCounter;
   const g = { id, prize: i.options.getString('prize'), endsAt: Date.now() + ms, winners: i.options.getInteger('winners') ?? 1,
-    coins: i.options.getInteger('coins') ?? 0, crystals: i.options.getInteger('crystals') ?? 0, entrants: [], ended: false, hostId: i.user.id, winnerIds: [] };
+    coins: i.options.getInteger('coins') ?? 0, entrants: [], ended: false, hostId: i.user.id, winnerIds: [] };
   const ch = await i.client.channels.fetch(cfg.channels.events);
   const m = await ch.send(post(view(g, false), [joinRow(g)]));
   Object.assign(g, { channelId: ch.id, messageId: m.id }); data.giveaways[id] = g; save();
