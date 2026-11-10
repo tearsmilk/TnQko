@@ -6,7 +6,7 @@ import { embed, msg, sendLog } from './util.js';
 
 const eph = MessageFlags.Ephemeral;
 const MIN_BET = 10, MAX_BET = 500, MAX_WIN = 50000, COOLDOWN = 4000;
-const PULL = 300, PULL10 = 2700, EPIC_PITY = 30, LEG_PITY = 90;
+const PULL = 1, PULL10 = 9, EPIC_PITY = 30, LEG_PITY = 90; // цена в кристаллах 💎
 const GREEN = 0x6fa380, RED = 0xa05a5a, GREY = 0x7a7a85;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const cd = new Map();
@@ -23,8 +23,8 @@ export const commands = [
       .addIntegerOption((o) => o.setName('bet').setDescription(`Ставка ${MIN_BET}-${MAX_BET}`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true))
       .addStringOption((o) => o.setName('color').setDescription('Цвет').setRequired(true).addChoices({ name: '🔴 красное', value: 'red' }, { name: '⚫ чёрное', value: 'black' }, { name: '🟢 зелёное (0)', value: 'green' }))),
   new SlashCommandBuilder().setName('gacha').setDescription('Крутки: коллекционные роли')
-    .addSubcommand((s) => s.setName('pull').setDescription(`Одна крутка (${PULL} монет)`))
-    .addSubcommand((s) => s.setName('multi').setDescription(`10 круток (${PULL10} монет, минимум одна редкая)`))
+    .addSubcommand((s) => s.setName('pull').setDescription(`Одна крутка (${PULL} кристалл)`))
+    .addSubcommand((s) => s.setName('multi').setDescription(`10 круток (${PULL10} кристаллов, минимум одна роль)`))
     .addSubcommand((s) => s.setName('collection').setDescription('Твоя коллекция ролей').addUserOption((o) => o.setName('user').setDescription('Чья коллекция')))
     .addSubcommand((s) => s.setName('rates').setDescription('Шансы, гарантии и список ролей')),
 ].map((c) => c.setContexts(0).toJSON());
@@ -93,7 +93,7 @@ async function casino(i) {
 // ---------- крутки ----------
 const POOL = (cfg.gachaRoles ?? []);
 const byRarity = (r) => POOL.filter((x) => x.rarity === r);
-const RAR = { C: { e: '⚪', name: 'Обычное', color: GREY }, R: { e: '🔵', name: 'Редкое', color: 0x5b8bd6 }, SR: { e: '🟣', name: 'Эпическое', color: 0x8e5bff }, SSR: { e: '🟡', name: 'Легендарное', color: 0xffd166 } };
+const RAR = { C: { e: '⚪', name: 'Без роли', color: GREY }, R: { e: '🔵', name: 'Редкое', color: 0x5b8bd6 }, SR: { e: '🟣', name: 'Эпическое', color: 0x8e5bff }, SSR: { e: '🟡', name: 'Легендарное', color: 0xffd166 } };
 const DUP = { R: 150, SR: 500, SSR: 1500 };
 
 function pullOnce(u, forceRare) {
@@ -104,8 +104,7 @@ function pullOnce(u, forceRare) {
   else { const r = Math.random(); rar = r < 0.02 ? 'SSR' : r < 0.12 ? 'SR' : r < 0.40 ? 'R' : 'C'; }
   if (forceRare && rar === 'C') rar = 'R';
   if (rar === 'SSR') { u.legPity = 0; u.epicPity = 0; } else if (rar === 'SR') u.epicPity = 0;
-  if (rar === 'C') { const c = 100 + rnd(151); u.coins += c; return { rar, text: `**${c}** 🪙` }; }
-  if (rar === 'R' && Math.random() < 0.25) { u.crystals += 1; return { rar, text: '**1** 💎 кристалл' }; }
+  if (rar === 'C') { const c = 150 + rnd(251); u.coins += c; return { rar, text: `роль не выпала: **+${c}** 🪙` }; } // кристаллы из круток не выпадают
   const role = byRarity(rar)[rnd(byRarity(rar).length)];
   if (u.collection.includes(role.key)) { u.coins += DUP[rar]; return { rar, role, dup: true, text: `<@&${role.roleId}> (повтор, +${DUP[rar]} 🪙)` }; }
   u.collection.push(role.key);
@@ -121,11 +120,11 @@ async function gacha(i) {
   const u = getUser(i.user.id); u.collection ??= []; u.pulls ??= 0; u.epicPity ??= 0; u.legPity ??= 0;
   if (sub === 'rates') {
     const list = (r) => byRarity(r).map((x) => `<@&${x.roleId}>`).join(' ');
-    return i.reply(msg(embed('🎲 Крутки', `Цена: **${PULL} 🪙** за крутку, **${PULL10} 🪙** за 10 (минимум одно редкое).`).addFields(
+    return i.reply(msg(embed('🎲 Крутки', `Цена: **${PULL} 💎** за крутку, **${PULL10} 💎** за 10 (в десятке всегда есть хотя бы одна роль).\nКристаллы дают за серию /daily (каждые 7 дней), в розыгрышах и на ивентах.`).addFields(
       { name: '🟡 Легендарное · 2%', value: `${list('SSR')}\nГарантия: не позже чем на ${LEG_PITY}-й крутке` },
       { name: '🟣 Эпическое · 10%', value: `${list('SR')}\nГарантия эпика или лучше: каждые ${EPIC_PITY} круток` },
-      { name: '🔵 Редкое · 28%', value: `${list('R')}\nС шансом 25% вместо роли выпадает 💎 кристалл` },
-      { name: '⚪ Обычное · 60%', value: 'От 100 до 250 🪙' },
+      { name: '🔵 Редкое · 28%', value: list('R') },
+      { name: '⚪ Роль не выпала · 60%', value: 'Падают монеты: от 150 до 400 🪙. Кристаллы из круток не выпадают.' },
       { name: 'Повторы', value: `Роль уже есть: редкая +${DUP.R} 🪙, эпическая +${DUP.SR} 🪙, легендарная +${DUP.SSR} 🪙` }), [], { flags: eph }));
   }
   if (sub === 'collection') {
@@ -138,9 +137,9 @@ async function gacha(i) {
   const n = sub === 'multi' ? 10 : 1, cost = n === 10 ? PULL10 : PULL;
   const last = cd.get(i.user.id) ?? 0;
   if (Date.now() - last < COOLDOWN) return i.reply({ content: '⏳ Не так быстро, подожди пару секунд.', flags: eph });
-  if (u.coins < cost) return i.reply({ content: `Нужно ${cost} 🪙, у тебя ${u.coins} 🪙.`, flags: eph });
+  if (u.crystals < cost) return i.reply({ content: `Нужно ${cost} 💎, у тебя ${u.crystals} 💎. Кристаллы дают за серию /daily (каждые 7 дней), в розыгрышах и на ивентах.`, flags: eph });
   cd.set(i.user.id, Date.now());
-  u.coins -= cost;
+  u.crystals -= cost;
   const res = [];
   for (let k = 0; k < n; k++) res.push(pullOnce(u, n === 10 && k === 9 && !res.some((r) => r.rar !== 'C')));
   save();

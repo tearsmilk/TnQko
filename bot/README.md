@@ -16,7 +16,7 @@ Discord-бот для сервера TnQko: **модерация**, **тикет
 
 - **Роль Guest:** выдаётся автоматически всем, кто заходит на сервер (нужен включённый **Server Members Intent** в Developer Portal).
 - **Казино:** `/casino coinflip|slots|roulette` (ставка 10–500 монет, кулдаун 4 с, возврат около 95–98%).
-- **Крутки:** `/gacha pull` (300 🪙) и `/gacha multi` (10 за 2700 🪙, минимум одно редкое). 11 коллекционных ролей трёх редкостей (Stardust, Ember, Frost, Moss; Neon Fox, Midnight Cat, Void Walker, Sakura; Golden Whale, Eclipse, Prism Dragon). Шансы 60/28/10/2%, гарантия эпика каждые 30 круток и легендарки на 90-й. `/gacha collection`, `/gacha rates`.
+- **Крутки:** `/gacha pull` (1 💎) и `/gacha multi` (10 за 9 💎, минимум одна роль). Если роль не выпала, падают монеты (150–400 🪙); кристаллы из круток не выпадают. 11 коллекционных ролей трёх редкостей (Stardust, Ember, Frost, Moss; Neon Fox, Midnight Cat, Void Walker, Sakura; Golden Whale, Eclipse, Prism Dragon). Шансы 60/28/10/2%, гарантия эпика каждые 30 круток и легендарки на 90-й. `/gacha collection`, `/gacha rates`.
 
 ## Права
 | Действие | Роли |
