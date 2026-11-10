@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
-import { L1, L3 } from './config.js';
+import { cfg, L1, L3 } from './config.js';
 import { data, getUser, save } from './store.js';
 import { t, hasLevel, embed, sendLog } from './util.js';
 
@@ -25,7 +25,9 @@ export const commands = [
     .addSubcommand((s) => s.setName('give').setDescription('Выдать или забрать валюту')
       .addUserOption((o) => o.setName('user').setDescription('Пользователь').setRequired(true))
       .addStringOption((o) => o.setName('currency').setDescription('Валюта').setRequired(true).addChoices({ name: 'монеты', value: 'coins' }, { name: 'кристаллы', value: 'crystals' }))
-      .addIntegerOption((o) => o.setName('amount').setDescription('Можно отрицательное').setMinValue(-1000000).setMaxValue(1000000).setRequired(true))),
+      .addIntegerOption((o) => o.setName('amount').setDescription('Можно отрицательное').setMinValue(-1000000).setMaxValue(1000000).setRequired(true)))
+    .addSubcommand((s) => s.setName('reset-gacha').setDescription('Сбросить прогресс круток участника (коллекция, гарантии, роли)')
+      .addUserOption((o) => o.setName('user').setDescription('Пользователь').setRequired(true))),
 ].map((c) => c.setContexts(0).toJSON());
 
 const nameCache = new Map();
@@ -110,7 +112,18 @@ export async function handleCommand(i) {
   }
   if (name === 'economy') {
     if (!hasLevel(i.member, L3)) return i.reply({ content: '⛔', flags: eph }), true;
-    const user = i.options.getUser('user'), cur = i.options.getString('currency'), amt = i.options.getInteger('amount');
+    const user = i.options.getUser('user');
+    if (i.options.getSubcommand() === 'reset-gacha') {
+      const u = getUser(user.id), had = (u.collection ?? []).length, pulls = u.pulls ?? 0;
+      u.collection = []; u.pulls = 0; u.pityC = 0; u.pityR = 0; u.pityE = 0; u.epicPity = 0; u.legPity = 0; save();
+      const member = await i.guild.members.fetch(user.id).catch(() => null);
+      const ids = (cfg.gachaRoles ?? []).map((x) => x.roleId).filter((id) => member?.roles.cache.has(id));
+      if (member && ids.length) await member.roles.remove(ids, 'Сброс прогресса круток').catch((e) => console.error('reset-gacha roles', e.message));
+      await sendLog(i.client, embed('Сброс круток', `${i.user} сбросил(а) прогресс круток у ${user}: коллекция ${had}, круток ${pulls}, снято ролей ${ids.length}. Монеты и кристаллы не тронуты.`));
+      await i.reply({ content: `✅ Прогресс круток ${user} сброшен: коллекция ${had}, снято ролей ${ids.length}. Монеты и кристаллы не тронуты.`, flags: eph, allowedMentions: { parse: [] } });
+      return true;
+    }
+    const cur = i.options.getString('currency'), amt = i.options.getInteger('amount');
     const u = getUser(user.id);
     if (u[cur] + amt < 0) return i.reply({ content: t(i, 'Баланс не может быть отрицательным.', 'Balance cannot go negative.'), flags: eph }), true;
     u[cur] += amt; save();
