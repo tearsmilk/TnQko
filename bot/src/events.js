@@ -31,6 +31,9 @@ export const commands = [new SlashCommandBuilder().setName('event').setDescripti
     .addIntegerOption((o) => o.setName('prize1').setDescription('Награда за 1 место (монеты)').setMinValue(1).setMaxValue(100000))
     .addIntegerOption((o) => o.setName('prize2').setDescription('Награда за 2 место (монеты)').setMinValue(1).setMaxValue(100000))
     .addIntegerOption((o) => o.setName('prize3').setDescription('Награда за 3 место (монеты)').setMinValue(1).setMaxValue(100000))
+    .addIntegerOption((o) => o.setName('gems1').setDescription('Кристаллы за 1 место').setMinValue(1).setMaxValue(100000))
+    .addIntegerOption((o) => o.setName('gems2').setDescription('Кристаллы за 2 место').setMinValue(1).setMaxValue(100000))
+    .addIntegerOption((o) => o.setName('gems3').setDescription('Кристаллы за 3 место').setMinValue(1).setMaxValue(100000))
     .addStringOption((o) => o.setName('prize').setDescription('Дополнительный приз текстом').setMaxLength(100))
     .addChannelOption((o) => o.setName('rules').setDescription('Канал с правилами ивента (по умолчанию общие правила)').addChannelTypes(ChannelType.GuildText))
     .addIntegerOption((o) => o.setName('coins').setDescription('Награда за участие (монеты каждому участнику)').setMinValue(1).setMaxValue(5000))
@@ -80,7 +83,10 @@ function card(ev) {
   if (ev.prize) bullets.push(`**Дополнительный приз:** ${ev.prize}`);
   if (ev.winners?.length) bullets.push(`**Победители:** ${ev.winners.map((w, k) => `${MEDAL[k]} <@${w}>`).join(' ')}`);
   const rewards = [];
-  (ev.prizes ?? []).forEach((p, k) => { if (p) rewards.push(`**${k + 1} место:** ${p} 🪙`); });
+  [0, 1, 2].forEach((k) => {
+    const parts = [ev.prizes?.[k] ? `${ev.prizes[k]} 🪙` : null, ev.gems?.[k] ? `${ev.gems[k]} 💎` : null].filter(Boolean);
+    if (parts.length) rewards.push(`**${k + 1} место:** ${parts.join(' + ')}`);
+  });
   if (ev.coins) rewards.push(`**Награда за участие:** ${ev.coins} 🪙`);
   return activity({
     title: `${T.emoji} ${T.name} — ${ev.title}`, subtitle: status[ev.status], description: ev.description, bullets, rewards,
@@ -126,7 +132,7 @@ async function endEvent(client, ev, quiet = false, winners = []) {
   if (ev.status === 'ended' || ev.status === 'cancelled') return;
   ev.status = 'ended'; ev.endedAt = Date.now();
   ev.winners = winners.slice(0, 3);
-  ev.winners.forEach((id, k) => { const p = ev.prizes?.[k]; if (p) getUser(id).coins += p; });
+  ev.winners.forEach((id, k) => { const u = getUser(id); u.coins += ev.prizes?.[k] ?? 0; u.crystals += ev.gems?.[k] ?? 0; });
   if (ev.coins) for (const id of ev.participants) getUser(id).coins += ev.coins;
   save();
   const guild = await client.guilds.fetch(cfg.guildId);
@@ -135,7 +141,7 @@ async function endEvent(client, ev, quiet = false, winners = []) {
   if (!quiet) {
     const ch = await client.channels.fetch(cfg.channels.events);
     const bullets = [`**${ev.title}** — спасибо всем, кто пришёл!`];
-    if (ev.winners.length) bullets.push(`**Победители:** ${ev.winners.map((w, k) => `${MEDAL[k]} <@${w}>${ev.prizes?.[k] ? ` (+${ev.prizes[k]} 🪙)` : ''}`).join(' ')}`);
+    if (ev.winners.length) bullets.push(`**Победители:** ${ev.winners.map((w, k) => `${MEDAL[k]} <@${w}>${[ev.prizes?.[k] ? `${ev.prizes[k]} 🪙` : null, ev.gems?.[k] ? `${ev.gems[k]} 💎` : null].filter(Boolean).map((x) => ` (+${x})`).join('')}`).join(' ')}`);
     if (ev.coins && ev.participants.length) bullets.push(`**Участникам начислено:** по ${ev.coins} 🪙`);
     await ch.send(post(activity({ title: '✅ Ивент завершён', bullets, footer: `Ивент #${ev.id}`, color: 0x7a7a85 }), [], { allowedMentions: { parse: [] } })).catch(() => {});
   }
@@ -186,7 +192,7 @@ export async function handleCommand(i) {
     await i.deferReply({ flags: eph });
     const place = i.options.getChannel('place'), img = i.options.getAttachment('image');
     const ev = { id: ++data.eventCounter, title: i.options.getString('title'), type: i.options.getString('type'), description: i.options.getString('description') ?? '',
-      prize: i.options.getString('prize') ?? '', prizes: [1, 2, 3].map((n) => i.options.getInteger(`prize${n}`) ?? 0), rulesId: i.options.getChannel('rules')?.id ?? null, coins: i.options.getInteger('coins') ?? 0, limit: i.options.getInteger('limit') ?? 0,
+      prize: i.options.getString('prize') ?? '', prizes: [1, 2, 3].map((n) => i.options.getInteger(`prize${n}`) ?? 0), gems: [1, 2, 3].map((n) => i.options.getInteger(`gems${n}`) ?? 0), rulesId: i.options.getChannel('rules')?.id ?? null, coins: i.options.getInteger('coins') ?? 0, limit: i.options.getInteger('limit') ?? 0,
       duration: i.options.getInteger('duration') ?? 120, placeId: place?.id ?? null, where: i.options.getString('where') ?? '',
       hostId: i.user.id, startAt, createdAt: Date.now(), status: 'scheduled', participants: [], hasImage: false, reminded: false };
     let cover;
