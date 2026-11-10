@@ -105,7 +105,7 @@ export async function handleCommand(i) {
     const coins = 100 + Math.min(u.streak, 7) * 10;
     u.coins += coins;   // /daily даёт только обычные монеты
     save();
-    await i.reply({ content: t(i, `🎁 Ты получил **${coins}** 🪙. Серия: **${u.streak}** дн.`, `🎁 You got **${coins}** coins${crystal}. Streak: **${u.streak}** days.`) });
+    await i.reply({ content: `🎁 Ты получил **${coins}** 🪙. Серия: **${u.streak}** дн.` });
     return true;
   }
   if (name === 'economy') {
