@@ -84,5 +84,84 @@
       "hex": "A0A0A8",
       "roleId": "1569403359256125665"
     }
+  ],
+  "gachaRoles": [
+    {
+      "key": "stardust",
+      "name": "Stardust",
+      "rarity": "R",
+      "hex": "B8C4D6",
+      "roleId": "1569776179588890675"
+    },
+    {
+      "key": "ember",
+      "name": "Ember",
+      "rarity": "R",
+      "hex": "E0A58F",
+      "roleId": "1569776183875215420"
+    },
+    {
+      "key": "frost",
+      "name": "Frost",
+      "rarity": "R",
+      "hex": "9FD0E6",
+      "roleId": "1569776188333752372"
+    },
+    {
+      "key": "moss",
+      "name": "Moss",
+      "rarity": "R",
+      "hex": "A9C99A",
+      "roleId": "1569776193706922075"
+    },
+    {
+      "key": "neonfox",
+      "name": "Neon Fox",
+      "rarity": "SR",
+      "hex": "FF8A5B",
+      "roleId": "1569776198668779676"
+    },
+    {
+      "key": "midnightcat",
+      "name": "Midnight Cat",
+      "rarity": "SR",
+      "hex": "5B6BFF",
+      "roleId": "1569776203659747508"
+    },
+    {
+      "key": "voidwalker",
+      "name": "Void Walker",
+      "rarity": "SR",
+      "hex": "8E5BFF",
+      "roleId": "1569776207485079704"
+    },
+    {
+      "key": "sakura",
+      "name": "Sakura",
+      "rarity": "SR",
+      "hex": "FFA3C7",
+      "roleId": "1569776212249808997"
+    },
+    {
+      "key": "goldenwhale",
+      "name": "Golden Whale",
+      "rarity": "SSR",
+      "hex": "FFD166",
+      "roleId": "1569776216448303247"
+    },
+    {
+      "key": "eclipse",
+      "name": "Eclipse",
+      "rarity": "SSR",
+      "hex": "E8E1FF",
+      "roleId": "1569776220667773019"
+    },
+    {
+      "key": "prismdragon",
+      "name": "Prism Dragon",
+      "rarity": "SSR",
+      "hex": "7AF5FF",
+      "roleId": "1569776224962871326"
+    }
   ]
 }

@@ -1,0 +1,163 @@
+// Казино (монеты) и крутки (gacha): коллекционные роли за монеты.
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
+import { cfg } from './config.js';
+import { getUser, save } from './store.js';
+import { embed, msg, sendLog } from './util.js';
+
+const eph = MessageFlags.Ephemeral;
+const MIN_BET = 10, MAX_BET = 500, MAX_WIN = 50000, COOLDOWN = 4000;
+const PULL = 300, PULL10 = 2700, EPIC_PITY = 30, LEG_PITY = 90;
+const GREEN = 0x6fa380, RED = 0xa05a5a, GREY = 0x7a7a85;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const cd = new Map();
+const rnd = (n) => Math.floor(Math.random() * n);
+
+export const commands = [
+  new SlashCommandBuilder().setName('casino').setDescription('Казино за монеты')
+    .addSubcommand((s) => s.setName('coinflip').setDescription('Орёл или решка (выигрыш x2)')
+      .addIntegerOption((o) => o.setName('bet').setDescription(`Ставка ${MIN_BET}-${MAX_BET}`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true))
+      .addStringOption((o) => o.setName('side').setDescription('Сторона').setRequired(true).addChoices({ name: 'орёл', value: 'heads' }, { name: 'решка', value: 'tails' })))
+    .addSubcommand((s) => s.setName('slots').setDescription('Слоты')
+      .addIntegerOption((o) => o.setName('bet').setDescription(`Ставка ${MIN_BET}-${MAX_BET}`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true)))
+    .addSubcommand((s) => s.setName('roulette').setDescription('Рулетка: красное/чёрное x2, зелёное x36')
+      .addIntegerOption((o) => o.setName('bet').setDescription(`Ставка ${MIN_BET}-${MAX_BET}`).setMinValue(MIN_BET).setMaxValue(MAX_BET).setRequired(true))
+      .addStringOption((o) => o.setName('color').setDescription('Цвет').setRequired(true).addChoices({ name: '🔴 красное', value: 'red' }, { name: '⚫ чёрное', value: 'black' }, { name: '🟢 зелёное (0)', value: 'green' }))),
+  new SlashCommandBuilder().setName('gacha').setDescription('Крутки: коллекционные роли')
+    .addSubcommand((s) => s.setName('pull').setDescription(`Одна крутка (${PULL} монет)`))
+    .addSubcommand((s) => s.setName('multi').setDescription(`10 круток (${PULL10} монет, минимум одна редкая)`))
+    .addSubcommand((s) => s.setName('collection').setDescription('Твоя коллекция ролей').addUserOption((o) => o.setName('user').setDescription('Чья коллекция')))
+    .addSubcommand((s) => s.setName('rates').setDescription('Шансы, гарантии и список ролей')),
+].map((c) => c.setContexts(0).toJSON());
+
+// ---------- слоты ----------
+const REELS = [['🍒', 30], ['🍋', 25], ['🍇', 20], ['🔔', 12], ['💎', 8], ['7️⃣', 5]];
+const TRIPLE = { '7️⃣': 200, '💎': 60, '🔔': 30, '🍇': 15, '🍋': 10, '🍒': 6 };
+function spinReel() { let r = rnd(100); for (const [s, w] of REELS) { if ((r -= w) < 0) return s; } return '🍒'; }
+function slotsPayout(r) {
+  const [a, b, c] = r;
+  if (a === b && b === c) return TRIPLE[a];
+  const pair = a === b || a === c || b === c;
+  const sym = a === b || a === c ? a : b;
+  if (pair && sym === '🍒') return 1.5;
+  if (pair && (sym === '🍋' || sym === '🍇')) return 0.5;
+  return 0;
+}
+// ---------- рулетка ----------
+const REDS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const colorOf = (n) => (n === 0 ? 'green' : REDS.has(n) ? 'red' : 'black');
+const COLOR_EMOJI = { red: '🔴', black: '⚫', green: '🟢' };
+
+function result(i, title, line, net, bet) {
+  const c = net > 0 ? GREEN : net < 0 ? RED : GREY;
+  const text = net > 0 ? `**+${net} 🪙** (выигрыш)` : net < 0 ? `**${net} 🪙** (проигрыш)` : 'Ставка возвращена';
+  return msg(embed(title, `${line}\n\n${text}`).setColor(c).setFooter({ text: `Баланс: ${getUser(i.user.id).coins} 🪙 · ставка ${bet}` }));
+}
+
+async function casino(i) {
+  const sub = i.options.getSubcommand(), bet = i.options.getInteger('bet'), u = getUser(i.user.id);
+  const last = cd.get(i.user.id) ?? 0;
+  if (Date.now() - last < COOLDOWN) return i.reply({ content: '⏳ Не так быстро, подожди пару секунд.', flags: eph });
+  if (u.coins < bet) return i.reply({ content: `Не хватает монет: у тебя ${u.coins} 🪙.`, flags: eph });
+  cd.set(i.user.id, Date.now());
+  u.coins -= bet; save();
+  let win = 0;
+  if (sub === 'coinflip') {
+    const side = i.options.getString('side');
+    // небольшой перекос в пользу казино: шанс выигрыша 49%
+    const won = Math.random() < 0.49, shown = won ? side : side === 'heads' ? 'tails' : 'heads';
+    win = won ? bet * 2 : 0;
+    u.coins += win; save();
+    return i.reply(result(i, '🪙 Орёл или решка', `Выпало: **${shown === 'heads' ? 'орёл' : 'решка'}** (ты ставил на ${side === 'heads' ? 'орла' : 'решку'})`, win - bet, bet));
+  }
+  if (sub === 'roulette') {
+    const color = i.options.getString('color'), n = rnd(37), got = colorOf(n);
+    win = got === color ? bet * (color === 'green' ? 36 : 2) : 0;
+    win = Math.min(win, MAX_WIN); u.coins += win; save();
+    return i.reply(result(i, '🎡 Рулетка', `Выпало **${n}** ${COLOR_EMOJI[got]} (твоя ставка: ${COLOR_EMOJI[color]})`, win - bet, bet));
+  }
+  // slots: анимация в три шага
+  const reels = [spinReel(), spinReel(), spinReel()];
+  const view = (a, b, c, tail) => msg(embed('🎰 Слоты', `## ${a} ┃ ${b} ┃ ${c}${tail ? `\n\n${tail}` : ''}`).setColor(GREY));
+  await i.reply(view('❔', '❔', '❔'));
+  await sleep(700); await i.editReply(view(reels[0], '❔', '❔'));
+  await sleep(700); await i.editReply(view(reels[0], reels[1], '❔'));
+  await sleep(700);
+  const mult = slotsPayout(reels);
+  win = Math.min(Math.floor(bet * mult), MAX_WIN); u.coins += win; save();
+  const line = `## ${reels.join(' ┃ ')}`;
+  await i.editReply(result(i, '🎰 Слоты', line, win - bet, bet));
+  if (win >= 10000) sendLog(i.client, embed('Крупный выигрыш в слотах', `${i.user}: **+${win - bet} 🪙** (x${mult}, ставка ${bet})`));
+  return true;
+}
+
+// ---------- крутки ----------
+const POOL = (cfg.gachaRoles ?? []);
+const byRarity = (r) => POOL.filter((x) => x.rarity === r);
+const RAR = { C: { e: '⚪', name: 'Обычное', color: GREY }, R: { e: '🔵', name: 'Редкое', color: 0x5b8bd6 }, SR: { e: '🟣', name: 'Эпическое', color: 0x8e5bff }, SSR: { e: '🟡', name: 'Легендарное', color: 0xffd166 } };
+const DUP = { R: 150, SR: 500, SSR: 1500 };
+
+function pullOnce(u, forceRare) {
+  u.pulls = (u.pulls ?? 0) + 1; u.epicPity = (u.epicPity ?? 0) + 1; u.legPity = (u.legPity ?? 0) + 1; u.collection ??= [];
+  let rar;
+  if (u.legPity >= LEG_PITY) rar = 'SSR';
+  else if (u.epicPity >= EPIC_PITY) rar = Math.random() < 0.15 ? 'SSR' : 'SR';
+  else { const r = Math.random(); rar = r < 0.02 ? 'SSR' : r < 0.12 ? 'SR' : r < 0.40 ? 'R' : 'C'; }
+  if (forceRare && rar === 'C') rar = 'R';
+  if (rar === 'SSR') { u.legPity = 0; u.epicPity = 0; } else if (rar === 'SR') u.epicPity = 0;
+  if (rar === 'C') { const c = 100 + rnd(151); u.coins += c; return { rar, text: `**${c}** 🪙` }; }
+  if (rar === 'R' && Math.random() < 0.25) { u.crystals += 1; return { rar, text: '**1** 💎 кристалл' }; }
+  const role = byRarity(rar)[rnd(byRarity(rar).length)];
+  if (u.collection.includes(role.key)) { u.coins += DUP[rar]; return { rar, role, dup: true, text: `<@&${role.roleId}> (повтор, +${DUP[rar]} 🪙)` }; }
+  u.collection.push(role.key);
+  return { rar, role, text: `<@&${role.roleId}> ✨ **новая роль!**` };
+}
+async function syncRoles(i, member, u) {
+  const need = (u.collection ?? []).map((k) => POOL.find((x) => x.key === k)?.roleId).filter((id) => id && !member.roles.cache.has(id));
+  if (need.length) await member.roles.add(need, 'Крутки: коллекция').catch((e) => console.error('gacha roles', e.message));
+}
+const order = { C: 0, R: 1, SR: 2, SSR: 3 };
+async function gacha(i) {
+  const sub = i.options.getSubcommand();
+  const u = getUser(i.user.id); u.collection ??= []; u.pulls ??= 0; u.epicPity ??= 0; u.legPity ??= 0;
+  if (sub === 'rates') {
+    const list = (r) => byRarity(r).map((x) => `<@&${x.roleId}>`).join(' ');
+    return i.reply(msg(embed('🎲 Крутки', `Цена: **${PULL} 🪙** за крутку, **${PULL10} 🪙** за 10 (минимум одно редкое).`).addFields(
+      { name: '🟡 Легендарное · 2%', value: `${list('SSR')}\nГарантия: не позже чем на ${LEG_PITY}-й крутке` },
+      { name: '🟣 Эпическое · 10%', value: `${list('SR')}\nГарантия эпика или лучше: каждые ${EPIC_PITY} круток` },
+      { name: '🔵 Редкое · 28%', value: `${list('R')}\nС шансом 25% вместо роли выпадает 💎 кристалл` },
+      { name: '⚪ Обычное · 60%', value: 'От 100 до 250 🪙' },
+      { name: 'Повторы', value: `Роль уже есть: редкая +${DUP.R} 🪙, эпическая +${DUP.SR} 🪙, легендарная +${DUP.SSR} 🪙` }), [], { flags: eph }));
+  }
+  if (sub === 'collection') {
+    const target = i.options.getUser('user') ?? i.user, tu = getUser(target.id); tu.collection ??= [];
+    if (target.id === i.user.id) { const m = await i.guild.members.fetch(i.user.id).catch(() => null); if (m) await syncRoles(i, m, tu); }
+    const owned = ['SSR', 'SR', 'R'].map((r) => { const items = byRarity(r).filter((x) => tu.collection.includes(x.key)); return `${RAR[r].e} **${RAR[r].name}:** ${items.length ? items.map((x) => `<@&${x.roleId}>`).join(' ') : '—'}`; }).join('\n');
+    return i.reply(msg(embed(`🎴 Коллекция · ${target.globalName ?? target.username}`, owned).setFooter({
+      text: `Собрано ${tu.collection.length}/${POOL.length} · круток: ${tu.pulls ?? 0} · до эпика: ${Math.max(0, EPIC_PITY - (tu.epicPity ?? 0))} · до легендарки: ${Math.max(0, LEG_PITY - (tu.legPity ?? 0))}` }), [], { allowedMentions: { parse: [] } }));
+  }
+  const n = sub === 'multi' ? 10 : 1, cost = n === 10 ? PULL10 : PULL;
+  const last = cd.get(i.user.id) ?? 0;
+  if (Date.now() - last < COOLDOWN) return i.reply({ content: '⏳ Не так быстро, подожди пару секунд.', flags: eph });
+  if (u.coins < cost) return i.reply({ content: `Нужно ${cost} 🪙, у тебя ${u.coins} 🪙.`, flags: eph });
+  cd.set(i.user.id, Date.now());
+  u.coins -= cost;
+  const res = [];
+  for (let k = 0; k < n; k++) res.push(pullOnce(u, n === 10 && k === 9 && !res.some((r) => r.rar !== 'C')));
+  save();
+  const member = await i.guild.members.fetch(i.user.id).catch(() => null);
+  if (member) await syncRoles(i, member, u);
+  const best = res.reduce((a, b) => (order[b.rar] > order[a.rar] ? b : a));
+  const lines = res.map((r) => `${RAR[r.rar].e} ${r.text}`).join('\n');
+  await i.reply(msg(embed(n === 10 ? '🎲 10 круток' : '🎲 Крутка', lines).setColor(RAR[best.rar].color)
+    .setFooter({ text: `Баланс: ${u.coins} 🪙 · ${u.crystals} 💎 · до эпика: ${Math.max(0, EPIC_PITY - u.epicPity)} · до легендарки: ${Math.max(0, LEG_PITY - u.legPity)}` }), [], { allowedMentions: { parse: [] } }));
+  if (res.some((r) => r.rar === 'SSR')) sendLog(i.client, embed('Легендарная крутка', `${i.user} выбил(а) ${res.filter((r) => r.rar === 'SSR').map((r) => `<@&${r.role.roleId}>`).join(' ')}`));
+  return true;
+}
+
+export async function handleCommand(i) {
+  if (i.commandName === 'casino') { await casino(i); return true; }
+  if (i.commandName === 'gacha') { await gacha(i); return true; }
+  return false;
+}
+
+export const _test = { slotsPayout, spinReel, pullOnce, colorOf };

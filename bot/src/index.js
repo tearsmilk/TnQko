@@ -10,6 +10,7 @@ import * as shop from './shop.js';
 import * as giveaway from './giveaway.js';
 import * as rooms from './voicerooms.js';
 import * as events from './events.js';
+import * as casino from './casino.js';
 import { onMessage, onVoice, startVoiceTracking } from './tracking.js';
 import { registerCommands } from './deploy.js';
 import { cfg } from './config.js';
@@ -33,7 +34,7 @@ client.once(Events.ClientReady, async (c) => {
 client.on(Events.InteractionCreate, async (i) => {
   try {
     if (i.customId?.startsWith('vr:')) await rooms.handle(i);
-    else if (i.isChatInputCommand()) { (await handleCommand(i)) || (await profile.handleCommand(i)) || (await social.handleCommand(i)) || (await top.handleCommand(i)) || (await shop.handleCommand(i)) || (await giveaway.handleCommand(i)) || (await events.handleCommand(i)); }
+    else if (i.isChatInputCommand()) { (await handleCommand(i)) || (await profile.handleCommand(i)) || (await social.handleCommand(i)) || (await top.handleCommand(i)) || (await shop.handleCommand(i)) || (await giveaway.handleCommand(i)) || (await events.handleCommand(i)) || (await casino.handleCommand(i)); }
     else if ((i.isButton() || i.isModalSubmit()) && i.customId.startsWith('ap:')) await handleApp(i);
     else if (i.isButton()) { (await social.handleButton(i)) || (await giveaway.handleButton(i)) || (await events.handleButton(i)) || (await handleButton(i)); }
   } catch (e) {
