@@ -1,0 +1,188 @@
+{
+  "guildId": "1569006758863568946",
+  "color": 6705242,
+  "roles": {
+    "agency": "1569012131221737502",
+    "manager": "1569012136812875900",
+    "curatorQko": "1569012143364374781",
+    "mediaFame": "1569012149089730601",
+    "admin": "1569012154764632206",
+    "curatorDiscord": "1569012161596883024",
+    "mod": "1569012168672813100",
+    "media": "1569012175224442902",
+    "forumCreative": "1569406410842972474",
+    "forumPortal": "1569406415687127202",
+    "seniorEditor": "1569407780446670948",
+    "seniorEvent": "1569407788898328637",
+    "event": "1569407792895500311",
+    "patron": "1569407797404369038",
+    "vtuber": "1569407805985792070",
+    "partner": "1569407810955907333",
+    "eventsPing": "1569036409891725464",
+    "guest": "1569414149954338879"
+  },
+  "channels": {
+    "logs": "1569028143065600000",
+    "appReview": "1569264438790463549",
+    "ticketsCategory": "1569264434260484268",
+    "panelTickets": "1569264425804759112",
+    "panelApps": "1569264429789347863",
+    "weeklyTop": "1569403323105157341",
+    "events": "1569036535070728322",
+    "news": "1569036526187446423",
+    "voiceHub": "1569407463651024896",
+    "voicePanel": "1569407468675665961",
+    "voiceCategory": "1569036563021566102",
+    "rules": "1569036473187958837"
+  },
+  "shopColors": [
+    {
+      "key": "rose",
+      "name": "Rose",
+      "hex": "C98A9A",
+      "roleId": "1569403327391735818"
+    },
+    {
+      "key": "mauve",
+      "name": "Mauve",
+      "hex": "A58A91",
+      "roleId": "1569403331623784578"
+    },
+    {
+      "key": "blush",
+      "name": "Blush",
+      "hex": "E0B4B4",
+      "roleId": "1569403335599984790"
+    },
+    {
+      "key": "sand",
+      "name": "Sand",
+      "hex": "C9B79C",
+      "roleId": "1569403341316825250"
+    },
+    {
+      "key": "sage",
+      "name": "Sage",
+      "hex": "8FA39A",
+      "roleId": "1569403345456726096"
+    },
+    {
+      "key": "sky",
+      "name": "Sky",
+      "hex": "8FA8C4",
+      "roleId": "1569403350162874452"
+    },
+    {
+      "key": "lilac",
+      "name": "Lilac",
+      "hex": "A592C9",
+      "roleId": "1569403355330252995"
+    },
+    {
+      "key": "ash",
+      "name": "Ash",
+      "hex": "A0A0A8",
+      "roleId": "1569403359256125665"
+    }
+  ],
+  "gachaRoles": [
+    {
+      "key": "stardust",
+      "name": "Stardust",
+      "rarity": "C",
+      "hex": "B8C4D6",
+      "roleId": "1569776179588890675"
+    },
+    {
+      "key": "ember",
+      "name": "Ember",
+      "rarity": "C",
+      "hex": "E0A58F",
+      "roleId": "1569776183875215420"
+    },
+    {
+      "key": "frost",
+      "name": "Frost",
+      "rarity": "C",
+      "hex": "9FD0E6",
+      "roleId": "1569776188333752372"
+    },
+    {
+      "key": "moss",
+      "name": "Moss",
+      "rarity": "C",
+      "hex": "A9C99A",
+      "roleId": "1569776193706922075"
+    },
+    {
+      "key": "neonfox",
+      "name": "Neon Fox",
+      "rarity": "R",
+      "hex": "FF8A5B",
+      "roleId": "1569776198668779676"
+    },
+    {
+      "key": "midnightcat",
+      "name": "Midnight Cat",
+      "rarity": "R",
+      "hex": "5B6BFF",
+      "roleId": "1569776203659747508"
+    },
+    {
+      "key": "voidwalker",
+      "name": "Void Walker",
+      "rarity": "R",
+      "hex": "8E5BFF",
+      "roleId": "1569776207485079704"
+    },
+    {
+      "key": "sakura",
+      "name": "Sakura",
+      "rarity": "R",
+      "hex": "FFA3C7",
+      "roleId": "1569776212249808997"
+    },
+    {
+      "key": "goldenwhale",
+      "name": "Golden Whale",
+      "rarity": "L",
+      "hex": "FFD166",
+      "roleId": "1569776216448303247"
+    },
+    {
+      "key": "eclipse",
+      "name": "Eclipse",
+      "rarity": "L",
+      "hex": "E8E1FF",
+      "roleId": "1569776220667773019"
+    },
+    {
+      "key": "prismdragon",
+      "name": "Prism Dragon",
+      "rarity": "L",
+      "hex": "7AF5FF",
+      "roleId": "1569776224962871326"
+    },
+    {
+      "key": "aurora",
+      "name": "Aurora",
+      "rarity": "E",
+      "hex": "5EEAD4",
+      "roleId": "1569778718568751187"
+    },
+    {
+      "key": "thunderbird",
+      "name": "Thunderbird",
+      "rarity": "E",
+      "hex": "FACC15",
+      "roleId": "1569778722997805109"
+    },
+    {
+      "key": "mirage",
+      "name": "Mirage",
+      "rarity": "E",
+      "hex": "E879F9",
+      "roleId": "1569778727485833226"
+    }
+  ]
+}
