@@ -53,3 +53,21 @@ export const fmtDur = (ms) => {
   return [d && `${d}d`, h && `${h}h`, m && `${m}m`].filter(Boolean).join(' ') || `${Math.round(ms / 1e3)}s`;
 };
 export const top = (member) => member.roles.highest.position;
+
+const fence = (x) => `\`\`\`\n${String(x).replaceAll('```', "'''").slice(0, 900)}\n\`\`\``;
+/** Красивая карточка активности (ивент, розыгрыш и т.п.): заголовок, описание в блоке кода, список, награды, картинка, подпись. */
+export function activity({ title, subtitle, description, bullets = [], rewards = [], image, footer, color = cfg.color }) {
+  const text = (content) => ({ type: 10, content: clip(content) });
+  const parts = [text(`## ${title}${subtitle ? `\n-# ${subtitle}` : ''}`)];
+  if (description) parts.push(text(fence(description)));
+  if (bullets.length) parts.push(text(bullets.map((b) => `• ${b}`).join('\n')));
+  if (rewards.length) parts.push(text(rewards.map((r) => `• ${r}`).join('    ')));
+  if (image) parts.push({ type: 12, items: [{ media: { url: image } }] });
+  if (footer) parts.push({ type: 14, divider: false, spacing: 1 }, text(`-# ${footer}`));
+  return { type: 17, accent_color: color, components: parts };
+}
+/** Сообщение Components V2: (пинг-текст) + контейнер + кнопки под ним, вне контейнера. */
+export const post = (container, rows = [], { ping, ...extra } = {}) => ({
+  ...extra, flags: (extra.flags ?? 0) | V2,
+  components: [...(ping ? [{ type: 10, content: ping }] : []), container, ...rows],
+});

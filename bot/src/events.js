@@ -6,7 +6,7 @@ import {
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { cfg, L2 } from './config.js';
 import { data, getUser, save } from './store.js';
-import { embed, msg, hasLevel, parseDuration, sendLog } from './util.js';
+import { embed, msg, post, activity, hasLevel, parseDuration, sendLog } from './util.js';
 
 const eph = MessageFlags.Ephemeral;
 const DIR = new URL('../data/events/', import.meta.url);
@@ -28,14 +28,22 @@ export const commands = [new SlashCommandBuilder().setName('event').setDescripti
     .addStringOption((o) => o.setName('description').setDescription('Описание').setMaxLength(1000))
     .addChannelOption((o) => o.setName('place').setDescription('Голосовой канал или трибуна').addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice))
     .addStringOption((o) => o.setName('where').setDescription('Или текстом, если нет канала (например, стрим на Twitch)').setMaxLength(100))
-    .addStringOption((o) => o.setName('prize').setDescription('Приз или награда').setMaxLength(100))
-    .addIntegerOption((o) => o.setName('coins').setDescription('Монеты каждому участнику после ивента').setMinValue(1).setMaxValue(5000))
+    .addIntegerOption((o) => o.setName('prize1').setDescription('Награда за 1 место (монеты)').setMinValue(1).setMaxValue(100000))
+    .addIntegerOption((o) => o.setName('prize2').setDescription('Награда за 2 место (монеты)').setMinValue(1).setMaxValue(100000))
+    .addIntegerOption((o) => o.setName('prize3').setDescription('Награда за 3 место (монеты)').setMinValue(1).setMaxValue(100000))
+    .addStringOption((o) => o.setName('prize').setDescription('Дополнительный приз текстом').setMaxLength(100))
+    .addChannelOption((o) => o.setName('rules').setDescription('Канал с правилами ивента (по умолчанию общие правила)').addChannelTypes(ChannelType.GuildText))
+    .addIntegerOption((o) => o.setName('coins').setDescription('Награда за участие (монеты каждому участнику)').setMinValue(1).setMaxValue(5000))
     .addIntegerOption((o) => o.setName('limit').setDescription('Лимит участников').setMinValue(2).setMaxValue(500))
     .addIntegerOption((o) => o.setName('duration').setDescription('Длительность в минутах (по умолчанию 120)').setMinValue(15).setMaxValue(1440))
     .addAttachmentOption((o) => o.setName('image').setDescription('Картинка-баннер ивента')))
   .addSubcommand((s) => s.setName('list').setDescription('Ближайшие ивенты'))
   .addSubcommand((s) => s.setName('start').setDescription('Начать ивент сейчас').addIntegerOption((o) => o.setName('id').setDescription('ID ивента').setRequired(true)))
-  .addSubcommand((s) => s.setName('end').setDescription('Завершить ивент').addIntegerOption((o) => o.setName('id').setDescription('ID ивента').setRequired(true)))
+  .addSubcommand((s) => s.setName('end').setDescription('Завершить ивент и выдать награды')
+    .addIntegerOption((o) => o.setName('id').setDescription('ID ивента').setRequired(true))
+    .addUserOption((o) => o.setName('first').setDescription('Победитель, 1 место'))
+    .addUserOption((o) => o.setName('second').setDescription('2 место'))
+    .addUserOption((o) => o.setName('third').setDescription('3 место')))
   .addSubcommand((s) => s.setName('cancel').setDescription('Отменить ивент').addIntegerOption((o) => o.setName('id').setDescription('ID ивента').setRequired(true)))
   .setContexts(0).toJSON()];
 
@@ -55,47 +63,55 @@ export function parseWhen(s) {
 const ts = (ms, f) => `<t:${Math.floor(ms / 1000)}:${f}>`;
 const status = { scheduled: '🗓️ Скоро', live: '🔴 Идёт сейчас', ended: '✅ Завершён', cancelled: '❌ Отменён' };
 
+const extOf = (ct) => ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[ct] ?? 'png');
+const imgName = (ev) => `event-${ev.id}.${ev.imageExt || 'png'}`;
+const placeText = (ev) => (ev.placeId ? `<#${ev.placeId}>` : ev.where || 'на сервере');
+const MEDAL = ['🥇', '🥈', '🥉'];
+
 function card(ev) {
   const T = TYPES[ev.type] ?? TYPES.other;
-  const lines = [
-    `🕒 **Когда:** ${ts(ev.startAt, 'F')} (${ts(ev.startAt, 'R')})`,
-    `📍 **Где:** ${ev.placeId ? `<#${ev.placeId}>` : ev.where || 'на сервере'}`,
-    `🎙️ **Ведущий:** <@${ev.hostId}>`,
-    ev.prize ? `🎁 **Награда:** ${ev.prize}` : null,
-    ev.coins ? `🪙 **Монеты за участие:** ${ev.coins}` : null,
-    `👥 **Участвуют:** ${ev.participants.length}${ev.limit ? ` / ${ev.limit}` : ''}`,
-  ].filter(Boolean).join('\n');
-  const c = embed(`${T.emoji} ${ev.title}`, `-# ${T.name} · ${status[ev.status]}\n\n${ev.description || ''}`.trim())
-    .addFields({ name: 'Детали', value: lines }).setFooter({ text: `Ивент #${ev.id}` });
-  if (ev.status === 'live') c.setColor(0x6fa380); else if (ev.status === 'cancelled') c.setColor(0xa05a5a); else if (ev.status === 'ended') c.setColor(0x7a7a85);
-  if (ev.hasImage) c.setImage(`attachment://event-${ev.id}.png`);
-  return c;
+  const color = { live: 0x6fa380, cancelled: 0xa05a5a, ended: 0x7a7a85 }[ev.status];
+  const bullets = [
+    `**Когда:** ${ts(ev.startAt, 'F')} (${ts(ev.startAt, 'R')})`,
+    `**Где:** ${placeText(ev)}`,
+    `**Правила ивента** - <#${ev.rulesId || cfg.channels.rules}>`,
+    `**Участвуют:** ${ev.participants.length}${ev.limit ? ` / ${ev.limit}` : ''}`,
+  ];
+  if (ev.prize) bullets.push(`**Дополнительный приз:** ${ev.prize}`);
+  if (ev.winners?.length) bullets.push(`**Победители:** ${ev.winners.map((w, k) => `${MEDAL[k]} <@${w}>`).join(' ')}`);
+  const rewards = [];
+  (ev.prizes ?? []).forEach((p, k) => { if (p) rewards.push(`**${k + 1} место:** ${p} 🪙`); });
+  if (ev.coins) rewards.push(`**Награда за участие:** ${ev.coins} 🪙`);
+  return activity({
+    title: `${T.emoji} ${T.name} — ${ev.title}`, subtitle: status[ev.status], description: ev.description, bullets, rewards,
+    image: ev.hasImage ? `attachment://${imgName(ev)}` : null, footer: `🎙️ Ведущий: <@${ev.hostId}> · Ивент #${ev.id}`, color,
+  });
 }
 function rows(ev) {
   const off = ev.status === 'ended' || ev.status === 'cancelled';
   const r = [new ButtonBuilder().setCustomId(`ev:join:${ev.id}`).setLabel('Участвую').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(off)];
+  if (ev.placeId && !off) r.push(new ButtonBuilder().setLabel('Войти').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${cfg.guildId}/${ev.placeId}`));
   if (ev.discordEventId) r.push(new ButtonBuilder().setLabel('Событие Discord').setEmoji('📅').setStyle(ButtonStyle.Link).setURL(`https://discord.com/events/${cfg.guildId}/${ev.discordEventId}`));
   return [new ActionRowBuilder().addComponents(...r)];
 }
-const imageFile = (ev) => (ev.hasImage && existsSync(imgPath(ev.id)) ? [new AttachmentBuilder(readFileSync(imgPath(ev.id)), { name: `event-${ev.id}.png` })] : undefined);
+const imageFile = (ev) => (ev.hasImage && existsSync(imgPath(ev.id)) ? [new AttachmentBuilder(readFileSync(imgPath(ev.id)), { name: imgName(ev) })] : undefined);
 
 async function refresh(client, ev) {
   try {
     const ch = await client.channels.fetch(cfg.channels.events);
     const m = await ch.messages.fetch(ev.messageId);
-    await m.edit({ ...msg(card(ev), rows(ev)), files: undefined, attachments: [...m.attachments.values()] });
+    await m.edit({ ...post(card(ev), rows(ev)), files: undefined, attachments: [...m.attachments.values()] });
   } catch (e) { console.error('event refresh', e.message); }
 }
 async function announce(client, text, ev, pingAll = true) {
   const ch = await client.channels.fetch(cfg.channels.events);
   const users = ev.participants.slice(0, 80);
-  const mentions = [pingAll ? `<@&${cfg.roles.eventsPing}>` : null, ...users.map((u) => `<@${u}>`)].filter(Boolean).join(' ');
+  const ping = [pingAll ? `<@&${cfg.roles.eventsPing}>` : null, ...users.map((u) => `<@${u}>`)].filter(Boolean).join(' ');
   const T = TYPES[ev.type] ?? TYPES.other;
-  await ch.send({
-    flags: 32768,
-    components: [{ type: 10, content: mentions || '​' }, msg(embed(text, `**${T.emoji} ${ev.title}**\n📍 ${ev.placeId ? `<#${ev.placeId}>` : ev.where || 'на сервере'}`).setFooter({ text: `Ивент #${ev.id}` })).components[0]],
-    allowedMentions: { roles: pingAll ? [cfg.roles.eventsPing] : [], users },
-  });
+  const container = activity({ title: text, bullets: [`**${T.emoji} ${ev.title}**`, `**Где:** ${placeText(ev)}`], footer: `Ивент #${ev.id}`,
+    color: text.includes('начался') ? 0x6fa380 : undefined });
+  const row = ev.placeId && pingAll ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Войти').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${cfg.guildId}/${ev.placeId}`))] : [];
+  await ch.send(post(container, row, { ping: ping || undefined, allowedMentions: { roles: pingAll ? [cfg.roles.eventsPing] : [], users } }));
 }
 
 async function startEvent(client, ev) {
@@ -106,9 +122,11 @@ async function startEvent(client, ev) {
   await announce(client, '🔴 Ивент начался!', ev);
   await refresh(client, ev);
 }
-async function endEvent(client, ev, quiet = false) {
+async function endEvent(client, ev, quiet = false, winners = []) {
   if (ev.status === 'ended' || ev.status === 'cancelled') return;
   ev.status = 'ended'; ev.endedAt = Date.now();
+  ev.winners = winners.slice(0, 3);
+  ev.winners.forEach((id, k) => { const p = ev.prizes?.[k]; if (p) getUser(id).coins += p; });
   if (ev.coins) for (const id of ev.participants) getUser(id).coins += ev.coins;
   save();
   const guild = await client.guilds.fetch(cfg.guildId);
@@ -116,7 +134,10 @@ async function endEvent(client, ev, quiet = false) {
   await refresh(client, ev);
   if (!quiet) {
     const ch = await client.channels.fetch(cfg.channels.events);
-    await ch.send(msg(embed('✅ Ивент завершён', `**${ev.title}** — спасибо всем, кто пришёл!${ev.coins && ev.participants.length ? `\n🪙 Участникам начислено по **${ev.coins}** монет.` : ''}`), [], { allowedMentions: { parse: [] } })).catch(() => {});
+    const bullets = [`**${ev.title}** — спасибо всем, кто пришёл!`];
+    if (ev.winners.length) bullets.push(`**Победители:** ${ev.winners.map((w, k) => `${MEDAL[k]} <@${w}>${ev.prizes?.[k] ? ` (+${ev.prizes[k]} 🪙)` : ''}`).join(' ')}`);
+    if (ev.coins && ev.participants.length) bullets.push(`**Участникам начислено:** по ${ev.coins} 🪙`);
+    await ch.send(post(activity({ title: '✅ Ивент завершён', bullets, footer: `Ивент #${ev.id}`, color: 0x7a7a85 }), [], { allowedMentions: { parse: [] } })).catch(() => {});
   }
   await sendLog(client, embed(`Ивент #${ev.id} завершён`, `${ev.title} · участников: ${ev.participants.length}`));
 }
@@ -165,13 +186,13 @@ export async function handleCommand(i) {
     await i.deferReply({ flags: eph });
     const place = i.options.getChannel('place'), img = i.options.getAttachment('image');
     const ev = { id: ++data.eventCounter, title: i.options.getString('title'), type: i.options.getString('type'), description: i.options.getString('description') ?? '',
-      prize: i.options.getString('prize') ?? '', coins: i.options.getInteger('coins') ?? 0, limit: i.options.getInteger('limit') ?? 0,
+      prize: i.options.getString('prize') ?? '', prizes: [1, 2, 3].map((n) => i.options.getInteger(`prize${n}`) ?? 0), rulesId: i.options.getChannel('rules')?.id ?? null, coins: i.options.getInteger('coins') ?? 0, limit: i.options.getInteger('limit') ?? 0,
       duration: i.options.getInteger('duration') ?? 120, placeId: place?.id ?? null, where: i.options.getString('where') ?? '',
       hostId: i.user.id, startAt, createdAt: Date.now(), status: 'scheduled', participants: [], hasImage: false, reminded: false };
     let cover;
     if (img && /^image\/(png|jpe?g|webp|gif)/.test(img.contentType ?? '') && img.size <= 8 * 1024 * 1024) {
       cover = Buffer.from(await (await fetch(img.url)).arrayBuffer());
-      writeFileSync(imgPath(ev.id), cover); ev.hasImage = true;
+      writeFileSync(imgPath(ev.id), cover); ev.hasImage = true; ev.imageExt = extOf(img.contentType);
     }
     try {
       const base = { name: ev.title.slice(0, 100), scheduledStartTime: new Date(startAt), scheduledEndTime: new Date(startAt + ev.duration * 6e4),
@@ -183,8 +204,7 @@ export async function handleCommand(i) {
     } catch (e) { console.error('scheduled event', e.message); }
     const ch = await i.client.channels.fetch(cfg.channels.events);
     const pingRole = cfg.roles.eventsPing;
-    const sent = await ch.send({ flags: 32768, files: imageFile(ev), allowedMentions: { roles: [pingRole] },
-      components: [{ type: 10, content: `<@&${pingRole}> новый ивент!` }, msg(card(ev), rows(ev)).components[0]] });
+    const sent = await ch.send({ ...post(card(ev), rows(ev), { ping: `<@&${pingRole}> новый ивент!`, allowedMentions: { roles: [pingRole] } }), files: imageFile(ev) });
     ev.messageId = sent.id; data.events[ev.id] = ev; save();
     await sendLog(i.client, embed(`Ивент #${ev.id} создан`, `${ev.title} · ${ts(startAt, 'F')} · организатор ${i.user}`));
     return i.editReply(`✅ Ивент #${ev.id} опубликован в ${ch}. Напоминание и уведомление о старте придут автоматически.`), true;
@@ -194,7 +214,7 @@ export async function handleCommand(i) {
   const owner = ev.hostId === i.user.id || hasLevel(i.member, [cfg.roles.seniorEvent, ...L2]);
   if (!owner) return i.reply({ content: '⛔ Управлять чужим ивентом могут старший ивентер и команда.', flags: eph }), true;
   if (sub === 'start') { if (ev.status !== 'scheduled') return i.reply({ content: 'Ивент уже идёт или завершён.', flags: eph }), true; await startEvent(i.client, ev); }
-  else if (sub === 'end') { if (ev.status !== 'live' && ev.status !== 'scheduled') return i.reply({ content: 'Ивент уже завершён.', flags: eph }), true; await endEvent(i.client, ev); }
+  else if (sub === 'end') { if (ev.status !== 'live' && ev.status !== 'scheduled') return i.reply({ content: 'Ивент уже завершён.', flags: eph }), true; await endEvent(i.client, ev, false, ['first', 'second', 'third'].map((k) => i.options.getUser(k)?.id).filter(Boolean)); }
   else if (sub === 'cancel') { if (ev.status === 'ended' || ev.status === 'cancelled') return i.reply({ content: 'Ивент уже закрыт.', flags: eph }), true; await cancelEvent(i.client, ev); }
   await i.reply({ content: '✅', flags: eph });
   return true;
@@ -212,3 +232,4 @@ export async function handleButton(i) {
   refresh(i.client, ev);
   return true;
 }
+export { card, rows, imageFile };

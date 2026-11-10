@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { cfg, L2 } from './config.js';
 import { data, getUser, save } from './store.js';
-import { embed, msg, t, hasLevel, parseDuration, sendLog } from './util.js';
+import { embed, msg, post, activity, t, hasLevel, parseDuration, sendLog } from './util.js';
 
 const eph = MessageFlags.Ephemeral;
 export const commands = [new SlashCommandBuilder().setName('giveaway').setDescription('Розыгрыши (для стаффа)')
@@ -15,10 +15,13 @@ export const commands = [new SlashCommandBuilder().setName('giveaway').setDescri
     .addIntegerOption((o) => o.setName('id').setDescription('ID розыгрыша').setRequired(true)))
   .setContexts(0).toJSON()];
 
-const view = (g, ended) => embed(`🎉 ${g.prize}`, ended
-  ? (g.winnerIds.length ? `**Победители:** ${g.winnerIds.map((x) => `<@${x}>`).join(', ')}` : 'Нет участников')
-  : `Нажми кнопку, чтобы участвовать\n**Конец:** <t:${Math.floor(g.endsAt / 1000)}:R>\n**Победителей:** ${g.winners}`)
-  .setFooter({ text: `ID ${g.id}${g.coins ? ` · +${g.coins} монет` : ''}${g.crystals ? ` · +${g.crystals} кристаллов` : ''}` });
+const view = (g, ended) => {
+  const bullets = ended
+    ? [g.winnerIds.length ? `**Победители:** ${g.winnerIds.map((x) => `<@${x}>`).join(', ')}` : 'Участников не было']
+    : [`**Конец:** <t:${Math.floor(g.endsAt / 1000)}:R>`, `**Победителей:** ${g.winners}`, 'Нажми кнопку ниже, чтобы участвовать'];
+  const rewards = [g.coins ? `**Награда:** ${g.coins} 🪙` : null, g.crystals ? `**Кристаллы:** ${g.crystals} 💎` : null].filter(Boolean);
+  return activity({ title: `🎁 Розыгрыш — ${g.prize}`, subtitle: ended ? '✅ Завершён' : '🔴 Идёт сейчас', bullets, rewards, footer: `Розыгрыш #${g.id}`, color: ended ? 0x7a7a85 : undefined });
+};
 const joinRow = (g, off = false) => new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId(`gw:join:${g.id}`).setLabel('Участвовать').setEmoji('🎉').setStyle(ButtonStyle.Primary).setDisabled(off));
 
@@ -32,7 +35,7 @@ async function finish(client, g) {
   save();
   try {
     const ch = await client.channels.fetch(g.channelId);
-    await ch.messages.edit(g.messageId, msg(view(g, true), [joinRow(g, true)], { allowedMentions: { parse: [] } }));
+    await ch.messages.edit(g.messageId, post(view(g, true), [joinRow(g, true)], { allowedMentions: { parse: [] } }));
     await ch.send({ content: g.winnerIds.length ? `🎉 ${g.winnerIds.map((x) => `<@${x}>`).join(', ')} — **${g.prize}**!` : `🎉 **${g.prize}**: нет участников`,
       reply: { messageReference: g.messageId, failIfNotExists: false }, allowedMentions: { users: g.winnerIds } });
   } catch (e) { console.error('giveaway finish', e.message); }
@@ -56,7 +59,7 @@ export async function handleCommand(i) {
   const g = { id, prize: i.options.getString('prize'), endsAt: Date.now() + ms, winners: i.options.getInteger('winners') ?? 1,
     coins: i.options.getInteger('coins') ?? 0, crystals: i.options.getInteger('crystals') ?? 0, entrants: [], ended: false, hostId: i.user.id, winnerIds: [] };
   const ch = await i.client.channels.fetch(cfg.channels.events);
-  const m = await ch.send(msg(view(g, false), [joinRow(g)]));
+  const m = await ch.send(post(view(g, false), [joinRow(g)]));
   Object.assign(g, { channelId: ch.id, messageId: m.id }); data.giveaways[id] = g; save();
   await i.reply({ content: `✅ Розыгрыш #${id} опубликован в ${ch}`, flags: eph });
   return true;
