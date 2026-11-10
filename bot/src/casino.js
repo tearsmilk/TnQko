@@ -130,7 +130,7 @@ async function gacha(i) {
   const u = getUser(i.user.id); u.collection ??= []; u.pulls ??= 0; u.pityC ??= 0; u.pityR ??= 0; u.pityE ??= 0;
   if (sub === 'rates') {
     const list = (r) => byRarity(r).map((x) => `<@&${x.roleId}>`).join(' ');
-    return i.reply(msg(embed('🎲 Крутки', `Цена: **${PULL} 💎** за крутку, **${PULL10} 💎** за 10.\nКристаллы дают за /daily (каждый день, плюс бонус за серию), в топе недели, на ивентах и в розыгрышах.`).addFields(
+    return i.reply(msg(embed('🎲 Крутки', `Цена: **${PULL} 💎** за крутку, **${PULL10} 💎** за 10.\nКристаллы можно получить в топе недели, на ивентах и в розыгрышах.`).addFields(
       { name: `🟡 Легендарная · ${RATES.L}%`, value: list('L') },
       { name: `🟣 Эпическая · ${RATES.E}%`, value: list('E') },
       { name: `🔵 Редкая · ${RATES.R}%`, value: list('R') },
@@ -148,7 +148,7 @@ async function gacha(i) {
   const n = sub === 'multi' ? 10 : 1, cost = n === 10 ? PULL10 : PULL;
   const last = cd.get(i.user.id) ?? 0;
   if (Date.now() - last < COOLDOWN) return i.reply({ content: '⏳ Не так быстро, подожди пару секунд.', flags: eph });
-  if (u.crystals < cost) return i.reply({ content: `Нужно ${cost} 💎, у тебя ${u.crystals} 💎. Кристаллы дают за /daily, топ недели, ивенты и розыгрыши.`, flags: eph });
+  if (u.crystals < cost) return i.reply({ content: `Нужно ${cost} 💎, у тебя ${u.crystals} 💎. Кристаллы дают в топе недели, на ивентах и в розыгрышах.`, flags: eph });
   cd.set(i.user.id, Date.now());
   u.crystals -= cost;
   const res = [];

@@ -103,11 +103,9 @@ export async function handleCommand(i) {
     u.streak = now - u.lastDaily > 48 * 36e5 ? 1 : u.streak + 1;
     u.lastDaily = now;
     const coins = 100 + Math.min(u.streak, 7) * 10;
-    const gems = 60 + (u.streak % 7 === 0 ? 160 : 0);   // 60 💎 в день, каждые 7 дней бонус как за одну крутку
-    u.coins += coins; u.crystals += gems;
-    const crystal = ` и **${gems}** 💎`;
+    u.coins += coins;   // /daily даёт только обычные монеты
     save();
-    await i.reply({ content: t(i, `🎁 Ты получил **${coins}** монет${crystal}. Серия: **${u.streak}** дн.`, `🎁 You got **${coins}** coins${crystal}. Streak: **${u.streak}** days.`) });
+    await i.reply({ content: t(i, `🎁 Ты получил **${coins}** 🪙. Серия: **${u.streak}** дн.`, `🎁 You got **${coins}** coins${crystal}. Streak: **${u.streak}** days.`) });
     return true;
   }
   if (name === 'economy') {
