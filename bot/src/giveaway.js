@@ -10,7 +10,7 @@ export const commands = [new SlashCommandBuilder().setName('giveaway').setDescri
     .addStringOption((o) => o.setName('duration').setDescription('10m, 2h, 1d (max 28d)').setRequired(true))
     .addIntegerOption((o) => o.setName('winners').setDescription('1-10').setMinValue(1).setMaxValue(10))
     .addIntegerOption((o) => o.setName('coins').setDescription('Автонаграда монетами каждому победителю').setMinValue(1).setMaxValue(100000))
-    .addIntegerOption((o) => o.setName('crystals').setDescription('Автонаграда кристаллами каждому победителю').setMinValue(1).setMaxValue(1000)))
+    .addIntegerOption((o) => o.setName('crystals').setDescription('Автонаграда кристаллами каждому победителю').setMinValue(1).setMaxValue(100000)))
   .addSubcommand((s) => s.setName('end').setDescription('Завершить сейчас')
     .addIntegerOption((o) => o.setName('id').setDescription('ID розыгрыша').setRequired(true)))
   .setContexts(0).toJSON()];

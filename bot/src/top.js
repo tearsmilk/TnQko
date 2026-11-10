@@ -32,13 +32,13 @@ export async function handleCommand(i) {
   return true;
 }
 
-const REWARDS = [300, 200, 100];
+const REWARDS = [300, 200, 100], GEMS = [160, 80, 40];
 export async function weeklyJob(client) {
   data.week ??= { next: nextMonday(), users: {} };
   if (Date.now() < data.week.next) return;
   const byMsg = rank('messages', 'week'), voice = rank('voice', 'week');
-  for (const list of [byMsg, voice]) list.slice(0, 3).forEach(([id], n) => { getUser(id).coins += REWARDS[n]; });
-  const e = embed('🏆 Топ недели', 'Награда в каждой категории: 🥇 300 · 🥈 200 · 🥉 100 монет.')
+  for (const list of [byMsg, voice]) list.slice(0, 3).forEach(([id], n) => { const u = getUser(id); u.coins += REWARDS[n]; u.crystals += GEMS[n]; });
+  const e = embed('🏆 Топ недели', 'Награда в каждой категории: 🥇 300 🪙 + 160 💎 · 🥈 200 🪙 + 80 💎 · 🥉 100 🪙 + 40 💎')
     .addFields({ name: '💬 Сообщения', value: lines(byMsg, 'messages') }, { name: '🎧 Войс', value: lines(voice, 'voice') });
   data.week = { next: nextMonday(), users: {} }; save();
   try { await (await client.channels.fetch(cfg.channels.weeklyTop)).send(msg(e, [], { allowedMentions: { parse: [] } })); } catch (err) { console.error('weekly top', err.message); }

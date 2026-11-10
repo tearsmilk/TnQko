@@ -4,7 +4,7 @@ import { getUser, save } from './store.js';
 import { embed, msg, t } from './util.js';
 
 const eph = MessageFlags.Ephemeral;
-const PRICE = 1000, CUSTOM_PRICE = 3;
+const PRICE = 1000, CUSTOM_PRICE = 800;
 const COLORS = cfg.shopColors;
 
 export const commands = [new SlashCommandBuilder().setName('shop').setDescription('Магазин')
@@ -40,7 +40,7 @@ export async function handleCommand(i) {
     } else if (sub === 'custom') {
       const m = /^#?([0-9a-f]{6})$/i.exec(i.options.getString('hex').trim());
       if (!m) return i.reply({ content: t(i, 'Формат: #A58A91', 'Format: #A58A91'), flags: eph }), true;
-      if (u.crystals < CUSTOM_PRICE) return i.reply({ content: t(i, `Нужно ${CUSTOM_PRICE} кристалла.`, `You need ${CUSTOM_PRICE} crystals.`), flags: eph }), true;
+      if (u.crystals < CUSTOM_PRICE) return i.reply({ content: t(i, `Нужно ${CUSTOM_PRICE} кристаллов.`, `You need ${CUSTOM_PRICE} crystals.`), flags: eph }), true;
       const color = parseInt(m[1], 16);
       let role = u.customRole ? await i.guild.roles.fetch(u.customRole).catch(() => null) : null;
       if (role) await role.setColor(color, 'shop'); else {

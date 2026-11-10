@@ -89,79 +89,100 @@
     {
       "key": "stardust",
       "name": "Stardust",
-      "rarity": "R",
+      "rarity": "C",
       "hex": "B8C4D6",
       "roleId": "1569776179588890675"
     },
     {
       "key": "ember",
       "name": "Ember",
-      "rarity": "R",
+      "rarity": "C",
       "hex": "E0A58F",
       "roleId": "1569776183875215420"
     },
     {
       "key": "frost",
       "name": "Frost",
-      "rarity": "R",
+      "rarity": "C",
       "hex": "9FD0E6",
       "roleId": "1569776188333752372"
     },
     {
       "key": "moss",
       "name": "Moss",
-      "rarity": "R",
+      "rarity": "C",
       "hex": "A9C99A",
       "roleId": "1569776193706922075"
     },
     {
       "key": "neonfox",
       "name": "Neon Fox",
-      "rarity": "SR",
+      "rarity": "R",
       "hex": "FF8A5B",
       "roleId": "1569776198668779676"
     },
     {
       "key": "midnightcat",
       "name": "Midnight Cat",
-      "rarity": "SR",
+      "rarity": "R",
       "hex": "5B6BFF",
       "roleId": "1569776203659747508"
     },
     {
       "key": "voidwalker",
       "name": "Void Walker",
-      "rarity": "SR",
+      "rarity": "R",
       "hex": "8E5BFF",
       "roleId": "1569776207485079704"
     },
     {
       "key": "sakura",
       "name": "Sakura",
-      "rarity": "SR",
+      "rarity": "R",
       "hex": "FFA3C7",
       "roleId": "1569776212249808997"
     },
     {
       "key": "goldenwhale",
       "name": "Golden Whale",
-      "rarity": "SSR",
+      "rarity": "L",
       "hex": "FFD166",
       "roleId": "1569776216448303247"
     },
     {
       "key": "eclipse",
       "name": "Eclipse",
-      "rarity": "SSR",
+      "rarity": "L",
       "hex": "E8E1FF",
       "roleId": "1569776220667773019"
     },
     {
       "key": "prismdragon",
       "name": "Prism Dragon",
-      "rarity": "SSR",
+      "rarity": "L",
       "hex": "7AF5FF",
       "roleId": "1569776224962871326"
+    },
+    {
+      "key": "aurora",
+      "name": "Aurora",
+      "rarity": "E",
+      "hex": "5EEAD4",
+      "roleId": "1569778718568751187"
+    },
+    {
+      "key": "thunderbird",
+      "name": "Thunderbird",
+      "rarity": "E",
+      "hex": "FACC15",
+      "roleId": "1569778722997805109"
+    },
+    {
+      "key": "mirage",
+      "name": "Mirage",
+      "rarity": "E",
+      "hex": "E879F9",
+      "roleId": "1569778727485833226"
     }
   ]
 }
